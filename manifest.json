@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "News Insight: Summary, Bias & Claims",
+  "version": "0.1.0",
+  "description": "Summarizes news pages, flags potential biases, and highlights claims for cross-checking using Chrome built-in AI.",
+
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "News Insight"
+  },
+
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["src/popup/*", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "minimum_chrome_version": "120"
+}

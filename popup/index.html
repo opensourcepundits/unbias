@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>News Insight</title>
+	<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+	<header>
+		<h1>News Insight</h1>
+	</header>
+	<main>
+		<section class="controls">
+			<button id="analyzeBtn">Analyze Current Page</button>
+		</section>
+		<section id="summarySection">
+			<h2>Summary</h2>
+			<div id="summary"></div>
+		</section>
+		<section id="biasSection">
+			<h2>Bias Signals</h2>
+			<ul id="biases"></ul>
+		</section>
+		<section id="claimsSection">
+			<h2>Claims to Cross-check</h2>
+			<ol id="claims"></ol>
+		</section>
+	</main>
+	<script src="popup.js" type="module"></script>
+</body>
+</html>
