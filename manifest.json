@@ -5,12 +5,12 @@
   "description": "Summarizes news pages, flags potential biases, and highlights claims for cross-checking using Chrome built-in AI.",
 
   "action": {
-    "default_popup": "src/popup/index.html",
+    "default_popup": "popup/index.html",
     "default_title": "News Insight"
   },
 
   "background": {
-    "service_worker": "src/background/service-worker.js",
+    "service_worker": "background/service-worker.js",
     "type": "module"
   },
 
@@ -20,7 +20,11 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/content.js"],
+      "exclude_matches": [
+        "https://www.google.com/warmup.html",
+        "http://www.google.com/warmup.html"
+      ],
+      "js": ["content/content.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
@@ -28,7 +32,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["src/popup/*", "assets/*"],
+      "resources": ["popup/*", "assets/*"],
       "matches": ["<all_urls>"]
     }
   ],

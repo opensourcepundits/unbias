@@ -5,22 +5,26 @@ async function getActiveTabId() {
 
 async function requestPageContent(tabId) {
 	try {
-		const [{ result }] = await chrome.scripting.executeScript({
-			target: { tabId },
-			func: () => {
-				return new Promise(resolve => {
-					chrome.runtime.sendMessage({ type: 'REQUEST_PAGE_CONTENT' }, (res) => resolve(res));
-				});
-			}
-		});
-		return result?.payload;
+		console.log('[News Insight][Popup] Requesting content from active tab:', tabId);
+		const res = await chrome.tabs.sendMessage(tabId, { type: 'REQUEST_PAGE_CONTENT' });
+		return res?.payload;
 	} catch (e) {
 		return null;
 	}
 }
 
 function renderSummary(summary) {
-	document.getElementById('summary').textContent = typeof summary === 'string' ? summary : JSON.stringify(summary, null, 2);
+	const summaryElement = document.getElementById('summary');
+	if (typeof summary === 'string') {
+		// Convert markdown bullet points to HTML for better display
+		const htmlContent = summary
+			.replace(/\*\s*(.+)/g, '• $1') // Convert * to bullet points
+			.replace(/\n/g, '<br>') // Convert newlines to line breaks
+			.replace(/•\s*(.+)/g, '<div style="margin-left: 20px; margin-bottom: 5px;">• $1</div>'); // Style bullet points
+		summaryElement.innerHTML = htmlContent;
+	} else {
+		summaryElement.textContent = JSON.stringify(summary, null, 2);
+	}
 }
 
 function renderBiases(biases) {
@@ -46,10 +50,13 @@ function renderClaims(claims) {
 }
 
 async function runAnalysis() {
+	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
 	let payload = await requestPageContent(tabId);
-	if (!payload) {
-		// Fallback: ask background to use last stored content
+	// Guard: if payload is empty or looks like a warmup page, try background cache
+	if (!payload || !payload.text || payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
+		console.warn('[News Insight][Popup] Empty/warmup payload. Falling back to latest stored content.');
+		payload = undefined;
 	}
 	const res = await chrome.runtime.sendMessage({ type: 'RUN_ANALYSIS', payload });
 	if (res?.ok) {
@@ -58,6 +65,29 @@ async function runAnalysis() {
 		renderClaims(res.data.claims);
 	} else {
 		renderSummary(res?.error || 'Failed to analyze.');
+	}
+}
+
+async function logSummarizerAvailability() {
+	try {
+		if (chrome?.ai?.summarizer?.availability) {
+			const availability = await chrome.ai.summarizer.availability();
+			console.log('[News Insight][Popup] Summarizer availability (chrome.ai):', availability);
+			return;
+		}
+		if (typeof Summarizer !== 'undefined' && Summarizer?.availability) {
+			const availability = await Summarizer.availability();
+			console.log('[News Insight][Popup] Summarizer availability (global Summarizer):', availability);
+			return;
+		}
+		if (window?.ai?.summarizer?.availability) {
+			const availability = await window.ai.summarizer.availability();
+			console.log('[News Insight][Popup] Summarizer availability (window.ai):', availability);
+			return;
+		}
+		console.warn('[News Insight][Popup] Summarizer availability API not found');
+	} catch (e) {
+		console.warn('[News Insight][Popup] Summarizer availability check failed', e);
 	}
 }
 

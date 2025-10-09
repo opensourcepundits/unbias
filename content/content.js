@@ -36,6 +36,14 @@ function collectPageContent() {
 (function initContentCollector() {
 	try {
 		const payload = collectPageContent();
+		// Skip known warmup/empty pages to avoid overwriting valid cache
+		const isWarmup = /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '') || /google\.com\/warmup/i.test(payload.url || '');
+		const hasText = !!(payload.text && payload.text.trim().length > 0);
+		if (isWarmup || !hasText) {
+			console.warn('[News Insight] Skipping PAGE_CONTENT (warmup or empty) for', payload.url);
+			return;
+		}
+		console.log('[News Insight] Collected page content:', payload);
 		chrome.runtime.sendMessage({ type: 'PAGE_CONTENT', payload });
 	} catch (err) {
 		// noop
