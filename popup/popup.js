@@ -82,6 +82,35 @@ function renderAnalysis(analysis) {
 	}
 }
 
+// Tab functionality
+function initializeTabs() {
+	const tabButtons = document.querySelectorAll('.tab-btn');
+	const tabPanels = document.querySelectorAll('.tab-panel');
+
+	tabButtons.forEach(button => {
+		button.addEventListener('click', () => {
+			const targetTab = button.getAttribute('data-tab');
+			switchToTab(targetTab);
+		});
+	});
+}
+
+function switchToTab(tabName) {
+	const tabButtons = document.querySelectorAll('.tab-btn');
+	const tabPanels = document.querySelectorAll('.tab-panel');
+	
+	// Remove active class from all tabs and panels
+	tabButtons.forEach(btn => btn.classList.remove('active'));
+	tabPanels.forEach(panel => panel.classList.remove('active'));
+	
+	// Add active class to target tab and panel
+	const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+	const targetPanel = document.getElementById(`${tabName}-tab`);
+	
+	if (targetButton) targetButton.classList.add('active');
+	if (targetPanel) targetPanel.classList.add('active');
+}
+
 async function runAnalysis() {
 	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
@@ -125,9 +154,14 @@ async function logSummarizerAvailability() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+	// Initialize tab functionality
+	initializeTabs();
+	
+	// Initialize button handlers
 	document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
 	const rewriteBtn = document.getElementById('rewriteBtn');
 	const identifyBiasesBtn = document.getElementById('identifyBiasesBtn');
+	const analyseWebpageBtn = document.getElementById('analyseWebpageBtn');
 	const speakBtn = document.getElementById('speakBtn');
 	const crossExamineBtn = document.getElementById('crossExamineBtn');
 
@@ -148,6 +182,21 @@ window.addEventListener('DOMContentLoaded', () => {
 	}
 	if (identifyBiasesBtn) {
 		identifyBiasesBtn.addEventListener('click', async () => {
+			const status = await getApiAvailability('LanguageModel');
+			if (status === 'downloadable') {
+				await downloadApiIfDownloadable('LanguageModel');
+				await initAvailabilityColors({
+					summarizeBtn: document.getElementById('analyzeBtn'),
+					rewriteBtn,
+					identifyBiasesBtn,
+					speakBtn
+				});
+			}
+			await runAction('RUN_ANALYSIS');
+		});
+	}
+	if (analyseWebpageBtn) {
+		analyseWebpageBtn.addEventListener('click', async () => {
 			const status = await getApiAvailability('LanguageModel');
 			if (status === 'downloadable') {
 				await downloadApiIfDownloadable('LanguageModel');
@@ -200,10 +249,22 @@ async function runAction(actionType) {
 	}
 	const res = await chrome.runtime.sendMessage({ type: actionType, payload });
 	if (res?.ok) {
-		if (res.data?.summary) renderSummary(res.data.summary);
-		if (res.data?.biases) renderBiases(res.data.biases);
-		if (res.data?.claims) renderClaims(res.data.claims);
-		if (res.data?.analysis) renderAnalysis(res.data.analysis);
+		if (res.data?.summary) {
+			renderSummary(res.data.summary);
+			switchToTab('summary');
+		}
+		if (res.data?.biases) {
+			renderBiases(res.data.biases);
+			switchToTab('bias');
+		}
+		if (res.data?.claims) {
+			renderClaims(res.data.claims);
+			switchToTab('claims');
+		}
+		if (res.data?.analysis) {
+			renderAnalysis(res.data.analysis);
+			switchToTab('analysis');
+		}
 	} else {
 		renderSummary(res?.error || 'Failed to run action.');
 	}

@@ -11,29 +11,52 @@
 		<h1>News Insight</h1>
 	</header>
 	<main>
-		<section class="controls">
-			<button id="analyzeBtn">Summarize</button>
-			<button id="rewriteBtn">Rewrite</button>
-			<button id="identifyBiasesBtn">Analyse this page</button>
-			<button id="speakBtn">Speak with this page</button>
-			<button id="crossExamineBtn">Cross examine</button>
-		</section>
-		<section id="summarySection">
-			<h2>Summary</h2>
-			<div id="summary"></div>
-		</section>
-		<section id="biasSection">
-			<h2>Bias Signals</h2>
-			<ul id="biases"></ul>
-		</section>
-		<section id="claimsSection">
-			<h2>Claims to Cross-check</h2>
-			<ol id="claims"></ol>
-		</section>
-		<section id="analysisSection">
-			<h2>AI Analysis</h2>
-			<div id="analysis"></div>
-		</section>
+		<!-- Tab Navigation -->
+		<nav class="tab-nav">
+			<button class="tab-btn active" data-tab="summary">Summary</button>
+			<button class="tab-btn" data-tab="analysis">AI Analysis</button>
+			<button class="tab-btn" data-tab="actions">Chat</button>
+		</nav>
+
+		<!-- Tab Content -->
+		<div class="tab-content">
+			<!-- Summary Tab -->
+			<div id="summary-tab" class="tab-panel active">
+				<div class="tab-header">
+					<h2>Summary</h2>
+					<button id="analyzeBtn" class="action-btn">Generate Summary</button>
+				</div>
+				<div id="summary"></div>
+			</div>
+
+			<!-- Rewrite article Tab -->
+			<div id="rewrite-tab" class="tab-panel">
+				<div class="tab-header">
+					<h2>Rewrite article</h2>
+				</div>
+				<div id="rewrite"></div>
+			</div>
+
+			<!-- AI Analysis Tab -->
+			<div id="analysis-tab" class="tab-panel">
+				<div class="tab-header">
+					<h2>AI Analysis</h2>
+					<button id="analyseWebpageBtn" class="action-btn">Analyse Page</button>
+				</div>
+				<div id="analysis"></div>
+			</div>
+
+			<!-- Actions Tab -->
+			<div id="chat-tab" class="tab-panel">
+				<div class="tab-header">
+					<h2>Chat</h2>
+				</div>
+				<div class="actions-grid">
+					<button id="rewriteBtn" class="action-btn full-width">Rewrite Content</button>
+					<button id="speakBtn" class="action-btn full-width">Speak with Page</button>
+				</div>
+			</div>
+		</div>
 	</main>
 	<script src="popup.js" type="module"></script>
 </body>
