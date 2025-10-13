@@ -14,3 +14,45 @@ button:hover { background: #b91c1c; }
 .status-yellow { background: #eab308; color: #111827; }
 .status-blue { background: #2563eb; }
 .status-green { background: #16a34a; }
+
+/* Analysis section styling */
+#analysis {
+	background: #f9fafb;
+	border: 1px solid #e5e7eb;
+	border-radius: 6px;
+	padding: 12px;
+	margin-top: 8px;
+	line-height: 1.5;
+	font-size: 13px;
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+#analysis h2 {
+	color: #111827;
+	font-size: 16px;
+	font-weight: bold;
+	margin: 20px 0 10px 0;
+	border-bottom: 2px solid #d1d5db;
+	padding-bottom: 6px;
+}
+
+#analysis h3 {
+	color: #1f2937;
+	font-size: 14px;
+	font-weight: bold;
+	margin: 15px 0 8px 0;
+	border-bottom: 1px solid #e5e7eb;
+	padding-bottom: 4px;
+}
+
+#analysis strong {
+	font-weight: bold;
+	color: #1f2937;
+}
+
+#analysis div[style*="border-left: 3px solid #3b82f6"] {
+	background: #eff6ff;
+	border-radius: 4px;
+	margin: 8px 0;
+}

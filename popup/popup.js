@@ -51,6 +51,37 @@ function renderClaims(claims) {
 	}
 }
 
+function renderAnalysis(analysis) {
+	const analysisElement = document.getElementById('analysis');
+	if (typeof analysis === 'string') {
+		// Enhanced markdown to HTML conversion for better formatting
+		let htmlContent = analysis
+			// Convert headers
+			.replace(/^### (.+)$/gm, '<h3 style="color: #1f2937; font-size: 14px; font-weight: bold; margin: 15px 0 8px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">$1</h3>')
+			.replace(/^## (.+)$/gm, '<h2 style="color: #111827; font-size: 16px; font-weight: bold; margin: 20px 0 10px 0; border-bottom: 2px solid #d1d5db; padding-bottom: 6px;">$1</h2>')
+			// Convert bold text
+			.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: bold; color: #1f2937;">$1</strong>')
+			.replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>')
+			// Convert numbered lists
+			.replace(/^(\d+\.\s+.+)$/gm, '<div style="margin: 8px 0 8px 20px; padding-left: 10px; border-left: 3px solid #3b82f6;">$1</div>')
+			// Convert bullet points (both * and -)
+			.replace(/^[\*\-\s]+(.+)$/gm, '<div style="margin: 6px 0 6px 20px; padding-left: 10px;">• $1</div>')
+			// Convert inline bullet points
+			.replace(/\*\s*(.+?)(?=\n|$)/g, '<div style="margin: 4px 0 4px 20px;">• $1</div>')
+			// Convert line breaks
+			.replace(/\n\n/g, '<br><br>')
+			.replace(/\n/g, '<br>')
+			// Style specific sections
+			.replace(/(Objectivity Assessment|General Note|Disclaimer):/g, '<div style="margin: 12px 0 8px 0; font-weight: bold; color: #dc2626;">$1:</div>')
+			.replace(/(Verification Needed|Bias Potential):/g, '<div style="margin: 8px 0 4px 0; font-weight: bold; color: #059669;">$1:</div>')
+			.replace(/(Claim:)/g, '<div style="margin: 8px 0 4px 0; font-weight: bold; color: #7c3aed;">$1</div>');
+		
+		analysisElement.innerHTML = htmlContent;
+	} else {
+		analysisElement.textContent = JSON.stringify(analysis, null, 2);
+	}
+}
+
 async function runAnalysis() {
 	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
@@ -127,7 +158,7 @@ window.addEventListener('DOMContentLoaded', () => {
 					speakBtn
 				});
 			}
-			await runAction('IDENTIFY_BIASES');
+			await runAction('ANALYSE_WEBPAGE');
 		});
 	}
 	if (speakBtn) {
@@ -172,6 +203,7 @@ async function runAction(actionType) {
 		if (res.data?.summary) renderSummary(res.data.summary);
 		if (res.data?.biases) renderBiases(res.data.biases);
 		if (res.data?.claims) renderClaims(res.data.claims);
+		if (res.data?.analysis) renderAnalysis(res.data.analysis);
 	} else {
 		renderSummary(res?.error || 'Failed to run action.');
 	}

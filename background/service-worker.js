@@ -1,9 +1,9 @@
 import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../ai/index.js';
 
-// Function to analyze page content with LanguageModel
-async function analyzePageContentWithLanguageModel(pageContent) {
+// Function to analyse webpage content with LanguageModel
+async function analyseWebpage(pageContent) {
 	try {
-		console.log('[News Insight] Analyzing new page content with LanguageModel...');
+		console.log('[News Insight] Analysing webpage with LanguageModel...');
 		
 		// Get LanguageModel params and create session
 		const params = await LanguageModel.params();
@@ -12,7 +12,7 @@ async function analyzePageContentWithLanguageModel(pageContent) {
 			topK: params.defaultTopK,
 		});
 		
-		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
 		const prompt = `${predefinedQuestion}\n\nPage Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
 		
 		console.log('[News Insight] Processing prompt with LanguageModel API...');
@@ -20,8 +20,12 @@ async function analyzePageContentWithLanguageModel(pageContent) {
 		console.log('[News Insight] AI Analysis of Page Content:', analysis);
 		
 		session.destroy();
+		
+		// Return the analysis result
+		return analysis;
 	} catch (error) {
-		console.error('[News Insight] Error analyzing page content with LanguageModel:', error);
+		console.error('[News Insight] Error analysing webpage with LanguageModel:', error);
+		throw error;
 	}
 }
 
@@ -73,10 +77,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			return false;
 		}
 		chrome.storage.session.set({ latestPageContent: payload });
-		
-		// Run LanguageModel analysis on new page content
-		analyzePageContentWithLanguageModel(payload);
-		
 		return false;
 	}
 	if (message?.type === 'RUN_ANALYSIS') {
@@ -95,6 +95,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 				sendResponse({ ok: true, data: { summary, biases, claims } });
 			} catch (e) {
 				sendResponse({ ok: false, error: (e && e.message) || 'Analysis failed' });
+			}
+		})();
+		return true; // async
+	}
+	if (message?.type === 'ANALYSE_WEBPAGE') {
+		(async () => {
+			try {
+				const content = message.payload || (await chrome.storage.session.get('latestPageContent')).latestPageContent;
+				if (!content?.text) {
+					sendResponse({ ok: false, error: 'No content to analyse' });
+					return;
+				}
+				const analysis = await analyseWebpage(content);
+				sendResponse({ ok: true, data: { analysis } });
+			} catch (e) {
+				sendResponse({ ok: false, error: (e && e.message) || 'Webpage analysis failed' });
 			}
 		})();
 		return true; // async
