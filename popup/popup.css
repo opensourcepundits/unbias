@@ -148,3 +148,31 @@ h2 { font-size: 14px; margin: 10px 0 6px; }
 	border-radius: 4px;
 	margin: 8px 0;
 }
+
+.summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;  
+}
+.summary ul li {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  font-size: 1.07em;
+  line-height: 1.6;
+  box-shadow: 0 1px 4px rgba(40,40,60,0.06);
+  display: flex;
+  align-items: flex-start;
+}
+.summary ul li::before {
+  content: '\2713  ';
+  color: #2563EB;
+  font-size: 18px;
+  margin-right: 10px;
+  margin-top: 2px;
+}
+.summary .highlight {
+  font-weight: bold;
+  color: #2563eb;
+}

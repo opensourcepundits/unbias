@@ -14,11 +14,9 @@
     "type": "module"
   },
 
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "aiLanguageModelOriginTrial"],
   "host_permissions": ["<all_urls>"],
-
-  "trial_tokens": ["+QrOr2GNsK/9wHpVMjv1MC/g3Rxbynyj6ysmkhUxY1CjnDI/pZ3/TLojrkyOxd8RY0A5zv2jAjupNkAkAAABieyJvcmlnaW4iOiJodHRwczovL2JiYy5jb206NDQzIiwiZmVhdHVyZSI6IkFJUmV3cml0ZXJBUEkiLCJleHBpcnkiOjE3Njk0NzIwMDAsImlzVGhpcmRQYXJ0eSI6dHJ1ZX0="],
-  
+"key": "dbicgnapomofjhbppmjphbldicpobpgg",  "trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

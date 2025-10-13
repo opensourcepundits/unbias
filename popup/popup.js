@@ -164,6 +164,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	const analyseWebpageBtn = document.getElementById('analyseWebpageBtn');
 	const speakBtn = document.getElementById('speakBtn');
 	const crossExamineBtn = document.getElementById('crossExamineBtn');
+	const rewriteContentBtn = document.getElementById('rewriteContentBtn');
 
 	if (rewriteBtn) {
 		rewriteBtn.addEventListener('click', async () => {
@@ -228,6 +229,16 @@ window.addEventListener('DOMContentLoaded', () => {
 	if (crossExamineBtn) {
 		crossExamineBtn.addEventListener('click', async () => {
 			await runAction('CROSS_EXAMINE');
+		});
+	}
+	if (rewriteContentBtn) {
+		rewriteContentBtn.addEventListener('click', async () => {
+			if (typeof Rewriter !== 'undefined' && Rewriter?.availability) {
+				const availability = await Rewriter.availability();
+				console.log('[Rewrite content tab] Rewriter availability:', availability);
+			} else {
+				console.error('[Rewrite content tab] Rewriter is not defined or does not have an availability method');
+			}
 		});
 	}
 
