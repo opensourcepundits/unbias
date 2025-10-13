@@ -4,6 +4,7 @@
 export async function summarizeArticle(content) {
     const text = content?.text || '';
     const titleLine = content?.title ? `Title: ${content.title}\n` : '';
+    const outputLanguage = getPreferredOutputLanguage();
     // Prefer on-device Summarizer API when available
     try {
         const summarizer = await tryCreateSummarizer();
@@ -12,7 +13,7 @@ export async function summarizeArticle(content) {
             // Use the article text that has already been fetched
             const summary = await summarizer.summarize(text, {
                 context: 'This article is intended for a curious audience.',
-                outputLanguage: 'en'
+                outputLanguage
             });
             if (summary) {
                 console.log('[News Insight][AI] Summarizer API returned summary:', summary);
@@ -73,12 +74,13 @@ async function runLocalPrompt(prompt, options = {}) {
 }
 
 async function tryCreateSummarizer() {
+    const outputLanguage = getPreferredOutputLanguage();
     const options = {
         sharedContext: 'This is a news article',
         type: 'key-points',
         format: 'markdown',
         length: 'medium',
-        outputLanguage: 'en',
+        outputLanguage,
         monitor(m) {
             m.addEventListener('downloadprogress', (e) => {
                 console.log(`Downloaded ${e.loaded * 100}%`);
@@ -166,4 +168,14 @@ async function tryCreatePromptSession() {
         }
     } catch (_) {}
     return null;
+}
+
+function getPreferredOutputLanguage() {
+    try {
+        const supported = ['en', 'es', 'ja'];
+        const lang = (navigator?.language || 'en').slice(0, 2).toLowerCase();
+        return supported.includes(lang) ? lang : 'en';
+    } catch (_) {
+        return 'en';
+    }
 }

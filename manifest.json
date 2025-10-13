@@ -17,6 +17,8 @@
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
 
+  "trial_tokens": ["+QrOr2GNsK/9wHpVMjv1MC/g3Rxbynyj6ysmkhUxY1CjnDI/pZ3/TLojrkyOxd8RY0A5zv2jAjupNkAkAAABieyJvcmlnaW4iOiJodHRwczovL2JiYy5jb206NDQzIiwiZmVhdHVyZSI6IkFJUmV3cml0ZXJBUEkiLCJleHBpcnkiOjE3Njk0NzIwMDAsImlzVGhpcmRQYXJ0eSI6dHJ1ZX0="],
+  
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

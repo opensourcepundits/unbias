@@ -6,5 +6,11 @@ h1 { font-size: 16px; margin: 0; }
 h2 { font-size: 14px; margin: 10px 0 6px; }
 #summary { white-space: pre-wrap; }
 #biases, #claims { padding-left: 18px; }
-button { background: #2563eb; color: white; border: 0; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
-button:hover { background: #1d4ed8; }
+button { background: #dc2626; color: white; border: 0; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-right: 6px; margin-bottom: 6px; }
+button:hover { background: #b91c1c; }
+
+/* Availability status colors */
+.status-red { background: #dc2626; }
+.status-yellow { background: #eab308; color: #111827; }
+.status-blue { background: #2563eb; }
+.status-green { background: #16a34a; }

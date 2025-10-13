@@ -1,7 +1,64 @@
 import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../ai/index.js';
 
-chrome.runtime.onInstalled.addListener(() => {
+// Function to analyze page content with LanguageModel
+async function analyzePageContentWithLanguageModel(pageContent) {
+	try {
+		console.log('[News Insight] Analyzing new page content with LanguageModel...');
+		
+		// Get LanguageModel params and create session
+		const params = await LanguageModel.params();
+		const session = await LanguageModel.create({
+			temperature: 2.0,
+			topK: params.defaultTopK,
+		});
+		
+		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+		const prompt = `${predefinedQuestion}\n\nPage Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
+		
+		console.log('[News Insight] Processing prompt with LanguageModel API...');
+		const analysis = await session.prompt(prompt);
+		console.log('[News Insight] AI Analysis of Page Content:', analysis);
+		
+		session.destroy();
+	} catch (error) {
+		console.error('[News Insight] Error analyzing page content with LanguageModel:', error);
+	}
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
 	chrome.storage.session.clear();
+	
+	// Log LanguageModel params when extension is loaded
+	try {
+		const params = await LanguageModel.params();
+		console.log('[News Insight] Initial LanguageModel.params():', params);
+		
+		// Initializing a new session must either specify both `topK` and
+		// `temperature` or neither of them.
+		const slightlyHighTemperatureSession = await LanguageModel.create({
+			temperature: 2.0,
+			topK: params.defaultTopK,
+		});
+		
+		// Get page content from storage and ask a predefined question
+		const { latestPageContent } = await chrome.storage.session.get('latestPageContent');
+		if (latestPageContent?.text) {
+			const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+			const prompt = `${predefinedQuestion}\n\nPage Title: ${latestPageContent.title || 'Unknown'}\nURL: ${latestPageContent.url || 'Unknown'}\n\nContent:\n${latestPageContent.text}`;
+			
+			console.log('[News Insight] Processing prompt with LanguageModel API...');
+			const analysis = await slightlyHighTemperatureSession.prompt(prompt);
+			console.log('[News Insight] AI Analysis of Page Content:', analysis);
+		} else {
+			console.log('[News Insight] No page content available for analysis');
+		}
+		
+		slightlyHighTemperatureSession.destroy();
+
+		
+	} catch (error) {
+		console.error('[News Insight] Error with LanguageModel.params() or session creation:', error);
+	}
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -16,6 +73,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			return false;
 		}
 		chrome.storage.session.set({ latestPageContent: payload });
+		
+		// Run LanguageModel analysis on new page content
+		analyzePageContentWithLanguageModel(payload);
+		
 		return false;
 	}
 	if (message?.type === 'RUN_ANALYSIS') {
