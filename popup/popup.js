@@ -187,6 +187,84 @@ async function criticalThinking() {
     }
 }
 
+async function rewriter() {
+    const outputDiv = document.getElementById('questions-output');
+    let pageText = null;
+    let options = {
+        sharedContext: '',
+        tone: 'more-casual',
+        format: 'plain-text',
+        length: 'shorter',
+    };
+    // Get page text
+    if (cachedPageContent?.text) {
+        pageText = cachedPageContent.text;
+    } else {
+        const tabId = await getActiveTabId();
+        const payload = await requestPageContent(tabId);
+        if (payload?.text) {
+            pageText = payload.text;
+        }
+    }
+    if (!pageText || !pageText.trim()) {
+        outputDiv.innerHTML = `<span style='color:red;'>Failed: Page text unavailable.</span>`;
+        return;
+    }
+    options.sharedContext = pageText;
+    // Model availability and possible download
+    let available = await Rewriter.availability();
+    console.log('[Rewriter] API availability:', available);
+    if (available === 'unavailable') {
+        console.warn('[Rewriter] API unavailable.');
+        outputDiv.innerHTML = `<span style='color:red;'>Rewriter API unavailable.</span>`;
+        return;
+    }
+    // Download if needed
+    if (available === 'downloadable') {
+        console.log('[Rewriter] Model is downloadable. Downloading…');
+        await downloadApiIfDownloadable('Rewriter');
+        // Recheck availability after download
+        available = await Rewriter.availability();
+        console.log('[Rewriter] API availability after download:', available);
+        if (available !== 'available') {
+            outputDiv.innerHTML = `<span style='color:red;'>Could not download model.</span>`;
+            return;
+        }
+    }
+    console.log('[Rewriter] Creating rewriter with options:', options);
+    let rewriter;
+    rewriter = await Rewriter.create(options);
+    // Attach progress logging if supported
+    if (rewriter && rewriter.addEventListener) {
+        rewriter.addEventListener('downloadprogress', (e) => {
+            console.log('[Rewriter] Download progress:', e.loaded, e.total);
+        });
+    }
+    console.log('[Rewriter] Rewriter instance created:', rewriter);
+    outputDiv.innerHTML = 'Rewriting…';
+    try {
+        let rewritten;
+        if (rewriter.rewrite) {
+            console.log('[Rewriter] Beginning inference with .rewrite()');
+            rewritten = await rewriter.rewrite(pageText);
+        } else if (rewriter.run) {
+            console.log('[Rewriter] Beginning inference with .run()');
+            const res = await rewriter.run(pageText);
+            rewritten = res?.output || res;
+        } else if (typeof rewriter === 'function') {
+            console.log('[Rewriter] Beginning inference with direct function call');
+            rewritten = await rewriter(pageText);
+        } else {
+            throw new Error('Rewriter instance does not support rewrite/run/function invocation');
+        }
+        console.log('[Rewriter] Inference result:', rewritten);
+        outputDiv.innerHTML = typeof rewritten === 'string' ? rewritten.replace(/\n/g, '<br>') : JSON.stringify(rewritten, null, 2);
+    } catch (err) {
+        outputDiv.innerHTML = `<span style='color:red;'>Failed: ${err.message}</span>`;
+        console.warn('[Rewriter] Error during inference', err);
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 	// Initialize tab functionality
 	initializeTabs();
@@ -202,19 +280,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
 
 	if (rewriteBtn) {
-		rewriteBtn.addEventListener('click', async () => {
-			const status = await getApiAvailability('Rewriter');
-			if (status === 'downloadable') {
-				await downloadApiIfDownloadable('Rewriter');
-				await initAvailabilityColors({
-					summarizeBtn: document.getElementById('analyzeBtn'),
-					rewriteBtn,
-					identifyBiasesBtn,
-					speakBtn
-				});
-			}
-			await runAction('REWRITE');
-		});
+		rewriteBtn.addEventListener('click', rewriter);
 	}
 	if (identifyBiasesBtn) {
 		identifyBiasesBtn.addEventListener('click', async () => {
@@ -267,14 +333,7 @@ window.addEventListener('DOMContentLoaded', () => {
 		});
 	}
 	if (rewriteContentBtn) {
-		rewriteContentBtn.addEventListener('click', async () => {
-			if (typeof Rewriter !== 'undefined' && Rewriter?.availability) {
-				const availability = await Rewriter.availability();
-				console.log('[Rewrite content tab] Rewriter availability:', availability);
-			} else {
-				console.error('[Rewrite content tab] Rewriter is not defined or does not have an availability method');
-			}
-		});
+		rewriteContentBtn.addEventListener('click', rewriter);
 	}
 	if (generateQuestionsBtn) {
 		generateQuestionsBtn.addEventListener('click', criticalThinking);
