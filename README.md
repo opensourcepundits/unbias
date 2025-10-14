@@ -1,6 +1,33 @@
 # News Insight (Chrome Extension)
 
-Summarize the current news page, identify potential biases, and surface verifiable claims to encourage critical reading. Built for the Google Chrome Built-in AI Challenge 2025 using on-device AI (e.g., Gemini Nano via Prompt/Summarizer APIs) when available.
+
+🚀 Installation
+Follow these steps to load the News Insight extension into your Chrome browser for development and testing.
+
+1. Get the Code (Clone the Repository)
+First, clone the repository to your local machine using your preferred method:
+
+```
+git clone [YOUR_REPO_URL]
+```
+
+# Navigate into the folder containing manifest.json
+2. Load as Unpacked Extension in Chrome
+
+Open Chrome and navigate to the Extensions management page: ```chrome://extensions/```
+
+Enable Developer Mode using the toggle switch in the upper right corner.
+
+Click the Load unpacked button (located in the upper left corner).
+
+Navigate to and select the local repository directory (the folder where your manifest.json file is located).
+
+The News Insight: Summary, Bias & Claims extension should now appear in your list. 
+
+
+To apply any code changes while developing, click the circular Reload arrow on the extension's card.
+
+
 
 ## Folder Structure
 
