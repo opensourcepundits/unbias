@@ -14,7 +14,7 @@
     "type": "module"
   },
 
-  "permissions": ["storage", "activeTab", "scripting", "aiLanguageModelOriginTrial"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
 "key": "dbicgnapomofjhbppmjphbldicpobpgg",  "trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="],
   "content_scripts": [

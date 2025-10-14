@@ -187,14 +187,22 @@ async function criticalThinking() {
     }
 }
 
-async function rewriter() {
-    const outputDiv = document.getElementById('questions-output');
+async function rewriter(event) {
+    // Determine output target div: if called from Rewrite Content tab, use 'rewrite-content'; else, fallback to 'questions-output'.
+    let outputDiv = document.getElementById('questions-output');
+    if (event && event.target && event.target.id === 'rewriteContentBtn') {
+        outputDiv = document.getElementById('rewrite-content');
+    }
     let pageText = null;
+    // Read values from dropdowns if present
+    const formatSelect = document.getElementById('rewrite-format-select');
+    const toneSelect = document.getElementById('rewrite-tone-select');
+    const lengthSelect = document.getElementById('rewrite-length-select');
     let options = {
         sharedContext: '',
-        tone: 'more-casual',
-        format: 'plain-text',
-        length: 'shorter',
+        tone: toneSelect ? toneSelect.value : 'more-casual',
+        format: formatSelect ? formatSelect.value : 'plain-text',
+        length: lengthSelect ? lengthSelect.value : 'shorter',
     };
     // Get page text
     if (cachedPageContent?.text) {

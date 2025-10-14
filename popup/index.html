@@ -34,8 +34,30 @@
 			<div id="rewrite-tab" class="tab-panel">
 				<div class="tab-header">
 					<h2>Rewrite content</h2>
-					<button id="rewriteContentBtn" class="action-btn">Rewrite</button>
+					<fieldset id="rewrite-options-fieldset" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 14px; padding:10px 14px; background:#f9fafb;">
+						<legend style="font-weight:600;color:#2d3748;padding:0 6px;">Rewriting Style Options</legend>
+						<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+							<label for="rewrite-format-select" class="rewrite-option-label" style="margin-right:4px;font-weight:500;">Format:</label>
+							<select id="rewrite-format-select" class="rewrite-option-select" style="min-width:144px;padding:4px;border-radius:4px;">
+								<option value="plain-text">Plain text (best for emails, simple notes)</option>
+								<option value="markdown">Markdown (keep headings/formatting)</option>
+							</select>
+							<label for="rewrite-tone-select" class="rewrite-option-label" style="margin-left:16px;margin-right:4px;font-weight:500;">Tone:</label>
+							<select id="rewrite-tone-select" class="rewrite-option-select" style="min-width:144px;padding:4px;border-radius:4px;">
+								<option value="more-casual">More casual (friendlier, informal)</option>
+								<option value="formal">More formal (polite, business style)</option>
+							</select>
+							<label for="rewrite-length-select" class="rewrite-option-label" style="margin-left:16px;margin-right:4px;font-weight:500;">Length:</label>
+							<select id="rewrite-length-select" class="rewrite-option-select" style="min-width:135px;padding:4px;border-radius:4px;">
+								<option value="shorter">Make it shorter</option>
+								<option value="same">Keep original length</option>
+								<option value="longer">Make it more detailed</option>
+							</select>
+						</div>
+					</fieldset>
 				</div>
+				<button id="rewriteContentBtn" class="action-btn" style="margin-bottom:10px;">Rewrite</button>
+
 				<div id="rewrite-content"></div>
 			</div>
 

@@ -2,29 +2,22 @@
 
 Summarize the current news page, identify potential biases, and surface verifiable claims to encourage critical reading. Built for the Google Chrome Built-in AI Challenge 2025 using on-device AI (e.g., Gemini Nano via Prompt/Summarizer APIs) when available.
 
-## Folder structure
+## Folder Structure
 
 ```
-extension/
-  manifest.json
-  .gitignore
-  assets/
-    icons/
-      icon-16.png
-      icon-32.png
-      icon-48.png
-      icon-128.png
-  src/
-    ai/
-      index.js               # wrappers for built-in AI APIs (Prompt, Summarizer, etc.)
-    background/
-      service-worker.js      # orchestrates analysis and stores last page content
-    content/
-      content.js             # extracts article metadata and text from the page
-    popup/
-      index.html
-      popup.css
-      popup.js
+unbias/
+├── ai/
+│   └── index.js
+├── background/
+│   └── service-worker.js
+├── content/
+│   └── content.js
+├── popup/
+│   ├── index.html
+│   ├── popup.css
+│   └── popup.js
+├── manifest.json
+└── README.md
 ```
 
 ## Capabilities
@@ -40,23 +33,23 @@ extension/
 - **Add icons** under `assets/icons/` (16/32/48/128). Temporary placeholders are fine.
 
 2) Content extraction
-- Implement `src/content/content.js` to collect: title, author, published time, main text, url.
+- Implement `content/content.js` to collect: title, author, published time, main text, url.
 - Prefer `<article>`/`<main>`; fallback to largest paragraph cluster; trim text.
 - Send `{ type: 'PAGE_CONTENT', payload }` to background; respond to `REQUEST_PAGE_CONTENT` messages.
 
 3) Background orchestration
-- Implement `src/background/service-worker.js` to:
+- Implement `background/service-worker.js` to:
   - cache latest page content in `chrome.storage.session`.
   - handle `RUN_ANALYSIS` by calling AI wrappers in parallel: summary, bias, claims.
   - return combined result to the popup.
 
 4) Popup UI
-- Build `src/popup/index.html`, `popup.css`, `popup.js` with a single "Analyze Current Page" button.
+- Build `popup/index.html`, `popup.css`, `popup.js` with a "Rewrite", "Critical Thinking", and "Generate Summary" functionality.
 - On click: request page content (via scripting message), then send `RUN_ANALYSIS` to background.
-- Render sections: Summary, Bias Signals, Claims to Cross-check.
+- Render sections: Summary, Bias Signals, Claims to Cross-check, Rewrite, Critical Thinking Questions.
 
 5) On-device AI integration
-- Replace stubs in `src/ai/index.js` with built-in APIs when available:
+- Replace stubs in `ai/index.js` with built-in APIs when available:
   - Prompt API: generate structured outputs for bias and claims.
   - Summarizer API: produce concise summary.
   - (Optional) Rewriter/Proofreader/Translator for UX additions.
@@ -87,7 +80,7 @@ extension/
 
 ## Built-in AI API integration (stubs → real)
 
-Replace calls in `src/ai/index.js`:
+Replace calls in `ai/index.js`:
 - `runLocalSummarizer` → Summarizer API
 - `runLocalPrompt` → Prompt API with JSON schema output for structured responses
 
