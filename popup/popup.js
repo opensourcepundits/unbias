@@ -153,6 +153,40 @@ async function logSummarizerAvailability() {
 	}
 }
 
+async function criticalThinking() {
+    const outputDiv = document.getElementById('questions-output');
+    outputDiv.innerHTML = 'Generating questions…';
+    let pageText = null;
+    try {
+        // Try using the cached page content
+        if (cachedPageContent?.text) {
+            pageText = cachedPageContent.text;
+        } else {
+            const tabId = await getActiveTabId();
+            const payload = await requestPageContent(tabId);
+            if (payload?.text) {
+                pageText = payload.text;
+            }
+        }
+        if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
+        const session = await LanguageModel.create({
+            initialPrompts: [
+                {
+                    role: 'system',
+                    content: 'You are a critical thinking expert. Read the following text and generate three questions that challenge the author\'s core assumptions.'
+                }
+            ],
+        });
+        const questions = await session.prompt(pageText);
+        outputDiv.innerHTML = Array.isArray(questions)
+            ? questions.map(q => `<div style='margin-bottom:8px;'>${q}</div>`).join('')
+            : (typeof questions === 'string' ? questions.replace(/\n/g, '<br>') : JSON.stringify(questions, null, 2));
+    } catch (err) {
+        outputDiv.innerHTML = `<span style='color:red;'>Failed: ${err.message}</span>`;
+        console.warn('[Generate Questions]', err);
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 	// Initialize tab functionality
 	initializeTabs();
@@ -165,6 +199,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	const speakBtn = document.getElementById('speakBtn');
 	const crossExamineBtn = document.getElementById('crossExamineBtn');
 	const rewriteContentBtn = document.getElementById('rewriteContentBtn');
+	const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
 
 	if (rewriteBtn) {
 		rewriteBtn.addEventListener('click', async () => {
@@ -240,6 +275,9 @@ window.addEventListener('DOMContentLoaded', () => {
 				console.error('[Rewrite content tab] Rewriter is not defined or does not have an availability method');
 			}
 		});
+	}
+	if (generateQuestionsBtn) {
+		generateQuestionsBtn.addEventListener('click', criticalThinking);
 	}
 
 	// Run startup flow: fetch and cache page content, then update button colors
