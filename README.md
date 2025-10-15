@@ -11,8 +11,9 @@ First, clone the repository to your local machine using your preferred method:
 git clone [YOUR_REPO_URL]
 ```
 
-# Navigate into the folder containing manifest.json
-2. Load as Unpacked Extension in Chrome
+2. Download [Google Chrome for developers](https://www.google.com/chrome/dev/) because it has the APIs built in.
+
+3. Load as Unpacked Extension in Chrome
 
 Open Chrome and navigate to the Extensions management page: ```chrome://extensions/```
 

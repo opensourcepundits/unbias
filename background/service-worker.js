@@ -1,4 +1,4 @@
-import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../ai/index.js';
+import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../api/index.js';
 
 // Function to analyse webpage content with LanguageModel
 async function analyseWebpage(pageContent) {
