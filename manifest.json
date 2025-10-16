@@ -14,9 +14,18 @@
     "type": "module"
   },
 
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "identity"],
+
+  "oauth2": {
+    "client_id": "272062888203-681783cnui0aokqhru7ejdsupitulj5p.apps.googleusercontent.com", 
+    
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.events"
+    ]
+  },
   "host_permissions": ["<all_urls>"],
-"key": "dbicgnapomofjhbppmjphbldicpobpgg",  "trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="],
+"key": "dbicgnapomofjhbppmjphbldicpobpgg",  
+"trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

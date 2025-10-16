@@ -120,6 +120,32 @@ h2 { font-size: 14px; margin: 10px 0 6px; }
 	overflow-y: auto;
 }
 
+/* Calendar Events section styling */
+.calendar-events-container {
+	margin-top: 8px;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.calendar-event-item {
+	background: #f9fafb;
+	border: 1px solid #e5e7eb;
+	border-radius: 6px;
+	padding: 12px;
+	margin-bottom: 8px;
+}
+
+.calendar-event-title {
+	font-weight: 600;
+	color: #111827;
+	margin-bottom: 4px;
+}
+
+.calendar-event-time {
+	color: #6b7280;
+	font-size: 12px;
+}
+
 #analysis h2 {
 	color: #111827;
 	font-size: 16px;

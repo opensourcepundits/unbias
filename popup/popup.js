@@ -346,6 +346,10 @@ window.addEventListener('DOMContentLoaded', () => {
 	if (generateQuestionsBtn) {
 		generateQuestionsBtn.addEventListener('click', criticalThinking);
 	}
+	const createCalendarEventBtn = document.getElementById('createCalendarEventBtn');
+	if (createCalendarEventBtn) {
+		createCalendarEventBtn.addEventListener('click', createCalendarEvent);
+	}
 
 	// Run startup flow: fetch and cache page content, then update button colors
 	OnStartUp({
@@ -530,4 +534,63 @@ async function createApiWithMonitor(apiName) {
 		}
 	}
 	throw new Error(`Create not supported for ${apiName}`);
+}
+
+async function createCalendarEvent() {
+	try {
+		// Get the current page content or title to use as the event name
+		let pageTitle = 'New Calendar Event';
+		let pageUrl = '';
+		if (cachedPageContent) {
+			pageTitle = cachedPageContent.title || pageTitle;
+			pageUrl = cachedPageContent.url || pageUrl;
+		} else {
+			const tabId = await getActiveTabId();
+			const payload = await requestPageContent(tabId);
+			if (payload) {
+				pageTitle = payload.title || pageTitle;
+				pageUrl = payload.url || pageUrl;
+			}
+		}
+
+		const eventTitle = `Review: ${pageTitle}`;
+		const eventDescription = `News article review\n\nURL: ${pageUrl}`;
+
+		// Create a calendar event starting in 1 hour from now
+		const startTime = new Date();
+		startTime.setHours(startTime.getHours() + 1);
+
+		const endTime = new Date(startTime);
+		endTime.setHours(endTime.getHours() + 1); // 1 hour event
+
+		// Construct Google Calendar URL with pre-filled data
+		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startTime.toISOString().replace(/-|:/g, '').slice(0, -5)}/${endTime.toISOString().replace(/-|:/g, '').slice(0, -5)}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
+
+		// Open Google Calendar in a new tab
+		await chrome.tabs.create({ url: googleCalendarUrl });
+
+		// Add the event to the local calendar events display
+		addCalendarEventToList(eventTitle, startTime);
+
+	} catch (err) {
+		console.warn('[Create Calendar Event]', err);
+		alert('Failed to create calendar event: ' + err.message);
+	}
+}
+
+function addCalendarEventToList(title, startTime) {
+	const container = document.getElementById('calendar-events');
+	if (!container) return;
+
+	const eventDiv = document.createElement('div');
+	eventDiv.className = 'calendar-event-item';
+
+	const timeString = startTime.toLocaleString();
+
+	eventDiv.innerHTML = `
+		<div class="calendar-event-title">${title}</div>
+		<div class="calendar-event-time">Scheduled: ${timeString}</div>
+	`;
+
+	container.appendChild(eventDiv);
 }
