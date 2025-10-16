@@ -346,9 +346,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	if (generateQuestionsBtn) {
 		generateQuestionsBtn.addEventListener('click', criticalThinking);
 	}
-	const createCalendarEventBtn = document.getElementById('createCalendarEventBtn');
-	if (createCalendarEventBtn) {
-		createCalendarEventBtn.addEventListener('click', createCalendarEvent);
+	const extractDatesBtn = document.getElementById('extractDatesBtn');
+	if (extractDatesBtn) {
+		extractDatesBtn.addEventListener('click', extractDates);
 	}
 
 	// Run startup flow: fetch and cache page content, then update button colors
@@ -536,61 +536,182 @@ async function createApiWithMonitor(apiName) {
 	throw new Error(`Create not supported for ${apiName}`);
 }
 
-async function createCalendarEvent() {
-	try {
-		// Get the current page content or title to use as the event name
-		let pageTitle = 'New Calendar Event';
-		let pageUrl = '';
-		if (cachedPageContent) {
-			pageTitle = cachedPageContent.title || pageTitle;
-			pageUrl = cachedPageContent.url || pageUrl;
+async function extractDates() {
+	const container = document.getElementById('calendar-events');
+	const tabId = await getActiveTabId();
+	const currentUrl = (await chrome.tabs.get(tabId)).url;
+
+	// Check if we already have extracted events for this URL
+	const storageKey = `calendar_events_${currentUrl}`;
+	const cached = await chrome.storage.local.get([storageKey]);
+
+	if (cached[storageKey]) {
+		// Render cached events
+		container.innerHTML = '';
+		const events = cached[storageKey];
+		if (events.length > 0) {
+			events.forEach(eventData => {
+				renderCalendarEventCard(eventData);
+			});
 		} else {
-			const tabId = await getActiveTabId();
+			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
+		}
+		return;
+	}
+
+	container.innerHTML = 'Extracting dates…';
+
+	try {
+		let pageText = null;
+		// Get page text
+		if (cachedPageContent?.text) {
+			pageText = cachedPageContent.text;
+		} else {
 			const payload = await requestPageContent(tabId);
-			if (payload) {
-				pageTitle = payload.title || pageTitle;
-				pageUrl = payload.url || pageUrl;
+			if (payload?.text) {
+				pageText = payload.text;
 			}
 		}
 
-		const eventTitle = `Review: ${pageTitle}`;
-		const eventDescription = `News article review\n\nURL: ${pageUrl}`;
+		if (!pageText || !pageText.trim()) {
+			container.innerHTML = 'No page text available to analyze.';
+			return;
+		}
 
-		// Create a calendar event starting in 1 hour from now
-		const startTime = new Date();
-		startTime.setHours(startTime.getHours() + 1);
+		// Check if LanguageModel is available
+		const status = await getApiAvailability('LanguageModel');
+		if (status === 'unavailable') {
+			container.innerHTML = 'LanguageModel API unavailable.';
+			return;
+		}
+		if (status === 'downloadable') {
+			await downloadApiIfDownloadable('LanguageModel');
+		}
 
-		const endTime = new Date(startTime);
-		endTime.setHours(endTime.getHours() + 1); // 1 hour event
+		const session = await LanguageModel.create();
 
-		// Construct Google Calendar URL with pre-filled data
-		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startTime.toISOString().replace(/-|:/g, '').slice(0, -5)}/${endTime.toISOString().replace(/-|:/g, '').slice(0, -5)}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
+		// Schema for structured output compatible with Google Calendar
+		const schema = {
+			type: "object",
+			properties: {
+				events: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							date: {
+								type: "string",
+								description: "The date in YYYY-MM-DD format (e.g., '2024-10-16') or a relative date like 'tomorrow', 'next week'"
+							},
+							event: {
+								type: "string",
+								description: "Brief description of the event associated with this date"
+							},
+							duration_hours: {
+								type: "number",
+								description: "Estimated duration in hours (default 1)"
+							}
+						},
+						required: ["date", "event"]
+					}
+				}
+			},
+			required: ["events"]
+		};
 
-		// Open Google Calendar in a new tab
-		await chrome.tabs.create({ url: googleCalendarUrl });
+		const result = await session.prompt(
+			pageText,
+			{
+				systemPrompt: "Extract all dates and the event associated with the date from this text. If no dates are found, return an empty events array.",
+				responseConstraint: schema,
+			}
+		);
 
-		// Add the event to the local calendar events display
-		addCalendarEventToList(eventTitle, startTime);
+		const responseData = JSON.parse(result);
+
+		// Clear loading message
+		container.innerHTML = '';
+
+		if (responseData.events && responseData.events.length > 0) {
+			responseData.events.forEach(eventData => {
+				renderCalendarEventCard(eventData);
+			});
+
+			// Cache the events for this URL
+			await chrome.storage.local.set({ [storageKey]: responseData.events });
+		} else {
+			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
+			await chrome.storage.local.set({ [storageKey]: [] });
+		}
 
 	} catch (err) {
-		console.warn('[Create Calendar Event]', err);
-		alert('Failed to create calendar event: ' + err.message);
+		container.innerHTML = `<span style='color:red;'>Failed to extract dates: ${err.message}</span>`;
+		console.warn('[Extract Dates]', err);
 	}
 }
 
-function addCalendarEventToList(title, startTime) {
+function renderCalendarEventCard(eventData) {
 	const container = document.getElementById('calendar-events');
 	if (!container) return;
 
 	const eventDiv = document.createElement('div');
-	eventDiv.className = 'calendar-event-item';
-
-	const timeString = startTime.toLocaleString();
+	eventDiv.className = 'calendar-event-card';
 
 	eventDiv.innerHTML = `
-		<div class="calendar-event-title">${title}</div>
-		<div class="calendar-event-time">Scheduled: ${timeString}</div>
+		<div class="calendar-event-card-header">
+			<div class="calendar-event-date">${eventData.date}</div>
+			<button class="calendar-add-btn action-btn">Add to Calendar</button>
+		</div>
+		<div class="calendar-event-description">${eventData.event}</div>
+		<div class="calendar-event-duration">${eventData.duration_hours || 1} hour(s)</div>
 	`;
 
+	// Add click handler for the "Add to Calendar" button
+	const addButton = eventDiv.querySelector('.calendar-add-btn');
+	addButton.addEventListener('click', () => {
+		createCalendarEventFromData(eventData);
+	});
+
 	container.appendChild(eventDiv);
+}
+
+async function createCalendarEventFromData(eventData) {
+	try {
+		// Parse date - if it's in YYYY-MM-DD format, use it directly
+		let startDate;
+		if (/^\d{4}-\d{2}-\d{2}$/.test(eventData.date)) {
+			startDate = new Date(eventData.date + 'T00:00:00');
+		} else {
+			// For relative dates like 'tomorrow', 'next week', calculate from now
+			const now = new Date();
+			if (eventData.date.toLowerCase().includes('tomorrow')) {
+				startDate = new Date(now);
+				startDate.setDate(now.getDate() + 1);
+			} else if (eventData.date.toLowerCase().includes('next week')) {
+				startDate = new Date(now);
+				startDate.setDate(now.getDate() + 7);
+			} else {
+				// Default to today if unrecognized format
+				startDate = new Date(now);
+			}
+		}
+
+		const endDate = new Date(startDate);
+		endDate.setHours(startDate.getHours() + (eventData.duration_hours || 1));
+
+		const eventTitle = eventData.event;
+		const eventDescription = `From article\n\n${eventData.event}`;
+
+		// Construct Google Calendar URL
+		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startDate.toISOString().replace(/-|:/g, '').slice(0, -5)}/${endDate.toISOString().replace(/-|:/g, '').slice(0, -5)}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
+
+		await chrome.tabs.create({ url: googleCalendarUrl });
+
+		// Show success feedback (optional)
+		alert('Calendar event opened in new tab!');
+
+	} catch (err) {
+		console.warn('[Create Calendar Event from Data]', err);
+		alert('Failed to create calendar event: ' + err.message);
+	}
 }

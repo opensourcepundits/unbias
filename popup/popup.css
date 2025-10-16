@@ -127,7 +127,7 @@ h2 { font-size: 14px; margin: 10px 0 6px; }
 	line-height: 1.5;
 }
 
-.calendar-event-item {
+.calendar-event-card {
 	background: #f9fafb;
 	border: 1px solid #e5e7eb;
 	border-radius: 6px;
@@ -135,15 +135,41 @@ h2 { font-size: 14px; margin: 10px 0 6px; }
 	margin-bottom: 8px;
 }
 
-.calendar-event-title {
-	font-weight: 600;
-	color: #111827;
-	margin-bottom: 4px;
+.calendar-event-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
 }
 
-.calendar-event-time {
+.calendar-event-date {
+	font-weight: 600;
+	color: #111827;
+	font-size: 14px;
+}
+
+.calendar-event-description {
+	color: #374151;
+	margin-bottom: 4px;
+	font-weight: 500;
+}
+
+.calendar-event-duration {
 	color: #6b7280;
 	font-size: 12px;
+}
+
+.calendar-add-btn {
+	font-size: 11px;
+	padding: 4px 8px;
+	margin: 0;
+}
+
+.no-dates-message {
+	color: #6b7280;
+	font-style: italic;
+	text-align: center;
+	padding: 20px;
 }
 
 #analysis h2 {
