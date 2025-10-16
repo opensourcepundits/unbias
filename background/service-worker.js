@@ -1,5 +1,64 @@
 import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../api/index.js';
 
+function getCalendarAuthToken() {
+	return new Promise((resolve, reject) => {
+	  // Setting interactive: true prompts the user for sign-in/authorization if needed
+	  chrome.identity.getAuthToken({ 'interactive': true }, function(token) {
+		if (chrome.runtime.lastError) {
+		  return reject(chrome.runtime.lastError);
+		}
+		if (!token) {
+		  return reject(new Error("Could not obtain access token."));
+		}
+		resolve(token);
+	  });
+	});
+  }
+
+
+  async function createCalendarEvent(eventData) {
+	try {
+	  const accessToken = await getCalendarAuthToken();
+	  
+	  // The default calendar is 'primary'
+	  const calendarId = 'primary'; 
+	  const apiUrl = `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`;
+  
+	  const response = await fetch(apiUrl, {
+		method: 'POST',
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		  'Content-Type': 'application/json'
+		},
+		// Event structure expected by the Google Calendar API
+		body: JSON.stringify({
+		  summary: eventData.title,
+		  description: eventData.description,
+		  start: {
+			dateTime: eventData.startDateTime, // e.g., '2025-10-25T10:00:00'
+			timeZone: 'Asia/Dubai' // Use the user's inferred or set timezone
+		  },
+		  end: {
+			dateTime: eventData.endDateTime,
+			timeZone: 'Asia/Dubai'
+		  }
+		})
+	  });
+  
+	  if (!response.ok) {
+		throw new Error(`Calendar API Error: ${response.statusText}`);
+	  }
+  
+	  const event = await response.json();
+	  console.log('Event created successfully:', event);
+	  return event;
+  
+	} catch (error) {
+	  console.error('Failed to create calendar event:', error);
+	  // You may need to handle token expiration here using chrome.identity.removeCachedAuthToken
+	}
+  }
+
 // Function to analyse webpage content with LanguageModel
 async function analyseWebpage(pageContent) {
 	try {

@@ -120,6 +120,58 @@ h2 { font-size: 14px; margin: 10px 0 6px; }
 	overflow-y: auto;
 }
 
+/* Calendar Events section styling */
+.calendar-events-container {
+	margin-top: 8px;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.calendar-event-card {
+	background: #f9fafb;
+	border: 1px solid #e5e7eb;
+	border-radius: 6px;
+	padding: 12px;
+	margin-bottom: 8px;
+}
+
+.calendar-event-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.calendar-event-date {
+	font-weight: 600;
+	color: #111827;
+	font-size: 14px;
+}
+
+.calendar-event-description {
+	color: #374151;
+	margin-bottom: 4px;
+	font-weight: 500;
+}
+
+.calendar-event-duration {
+	color: #6b7280;
+	font-size: 12px;
+}
+
+.calendar-add-btn {
+	font-size: 11px;
+	padding: 4px 8px;
+	margin: 0;
+}
+
+.no-dates-message {
+	color: #6b7280;
+	font-style: italic;
+	text-align: center;
+	padding: 20px;
+}
+
 #analysis h2 {
 	color: #111827;
 	font-size: 16px;
