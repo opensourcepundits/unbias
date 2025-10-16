@@ -1,6 +1,15 @@
 # News Insight (Chrome Extension)
 
 
+## To add
+- Estimated reading time
+- Translation?
+- Caching?
+- Settings page
+- Content filters
+- Improve all UIs
+- Get name
+
 🚀 Installation
 Follow these steps to load the News Insight extension into your Chrome browser for development and testing.
 
