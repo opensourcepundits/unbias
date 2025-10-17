@@ -169,7 +169,9 @@ async function criticalThinking() {
             }
         }
         if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
-        const session = await LanguageModel.create({
+
+        // First API call - original critical thinking questions
+        const session1 = await LanguageModel.create({
             initialPrompts: [
                 {
                     role: 'system',
@@ -177,10 +179,41 @@ async function criticalThinking() {
                 }
             ],
         });
-        const questions = await session.prompt(pageText);
-        outputDiv.innerHTML = Array.isArray(questions)
-            ? questions.map(q => `<div style='margin-bottom:8px;'>${q}</div>`).join('')
-            : (typeof questions === 'string' ? questions.replace(/\n/g, '<br>') : JSON.stringify(questions, null, 2));
+        const questions1 = await session1.prompt(pageText);
+
+        // Second API call - additional questions about unsupported claims
+        const session2 = await LanguageModel.create({
+            initialPrompts: [
+                {
+                    role: 'system',
+                    content: 'Analyze this text and identify which claims are not supported by evidence. Generate two questions that a reader should ask about these unsupported claims.'
+                }
+            ],
+        });
+        const questions2 = await session2.prompt(pageText);
+
+        // Combine and display results
+        let combinedResults = '';
+
+        // Add first set of questions
+        if (Array.isArray(questions1)) {
+            combinedResults += '<div style="margin-bottom: 15px;"><strong>Core Assumption Questions:</strong></div>';
+            combinedResults += questions1.map(q => `<div style='margin-bottom:8px; margin-left: 10px;'>${q}</div>`).join('');
+        } else if (typeof questions1 === 'string') {
+            combinedResults += '<div style="margin-bottom: 15px;"><strong>Core Assumption Questions:</strong></div>';
+            combinedResults += `<div style='margin-bottom:8px; margin-left: 10px;'>${questions1.replace(/\n/g, '<br>')}</div>`;
+        }
+
+        // Add second set of questions
+        if (Array.isArray(questions2)) {
+            combinedResults += '<div style="margin-bottom: 15px;"><strong>Unsupported Claims Questions:</strong></div>';
+            combinedResults += questions2.map(q => `<div style='margin-bottom:8px; margin-left: 10px;'>${q}</div>`).join('');
+        } else if (typeof questions2 === 'string') {
+            combinedResults += '<div style="margin-bottom: 15px;"><strong>Unsupported Claims Questions:</strong></div>';
+            combinedResults += `<div style='margin-bottom:8px; margin-left: 10px;'>${questions2.replace(/\n/g, '<br>')}</div>`;
+        }
+
+        outputDiv.innerHTML = combinedResults || JSON.stringify({questions1, questions2}, null, 2);
     } catch (err) {
         outputDiv.innerHTML = `<span style='color:red;'>Failed: ${err.message}</span>`;
         console.warn('[Generate Questions]', err);
