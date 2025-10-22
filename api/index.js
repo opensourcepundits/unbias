@@ -45,8 +45,58 @@ export async function extractAndCheckClaims(content) {
 	return claims;
 }
 
+export async function identifyLanguage(content) {
+	try {
+		console.log('[News Insight] Identifying language with LanguageModel...');
+
+		// Get LanguageModel params and create session, similar to analyseWebpage
+		const params = await LanguageModel.params();
+		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+		const session = await LanguageModel.create({
+			temperature: 2.0,
+			topK: topK,
+		});
+
+		const prompt = `From the following text, identify and extract phrases that are emotionally charged, subjective, or represent potential logical fallacies. Return ONLY a valid JSON object in the format: {"items": [{"label": "phrase1"}, {"label": "phrase2"}]} where each phrase is a string.
+
+Text:
+${content.text}`;
+
+		console.log('[News Insight] Processing prompt with LanguageModel API for highlighting...');
+		const response = await session.prompt(prompt);
+		console.log('[News Insight] LanguageModel response for highlighting:', response);
+
+		session.destroy();
+
+		// Parse the response as JSON if possible, otherwise return as is
+		// First, try to extract JSON from the response in case the model added extra text
+		const jsonMatch = response.match(/\{[\s\S]*\}/);
+		if (jsonMatch) {
+			try {
+				return JSON.parse(jsonMatch[0]);
+			} catch (parseError) {
+				console.warn('[News Insight] Failed to parse extracted JSON, returning raw response');
+				return { items: [{ label: response.trim() }] }; // Fallback structure
+			}
+		} else {
+			console.warn('[News Insight] No JSON found in response, returning raw response');
+			return { items: [{ label: response.trim() }] }; // Fallback structure
+		}
+	} catch (error) {
+		console.error('[News Insight] Error identifying language with LanguageModel:', error);
+		// Fallback to placeholder if LanguageModel fails
+		console.warn('[News Insight][AI] LanguageModel unavailable for highlighting, returning placeholder');
+		return {
+			items: [
+				{ label: 'Potential framing bias', detail: 'Focus on partisan quotes without counterpoints', score: 0.62 },
+			]
+		};
+	}
+}
+
 async function runLocalSummarizer(input) {
-    return await runLocalPrompt(`SUMMARIZE:\n${input}`);
+    return await runLocalPrompt(`SUMMARIZE:
+${input}`);
 }
 
 async function runLocalPrompt(prompt, options = {}) {

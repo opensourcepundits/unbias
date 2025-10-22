@@ -58,3 +58,107 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 	}
 	return false;
 });
+
+// Proactive Language Highlighter
+(function initLanguageHighlighter() {
+    console.log('[News Insight] Initializing Language Highlighter');
+    // 1. Add styles for highlighting
+    const style = document.createElement('style');
+    style.textContent = `
+        .unbias-highlight {
+            background-color: transparent;
+            border-bottom: 2px solid rgba(255, 182, 193, 0.7);
+            padding-bottom: 1px;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 2. IntersectionObserver to detect when paragraphs are visible
+    const observer = new IntersectionObserver(handleIntersection, { threshold: 0.5 });
+
+    // 3. Observe all paragraphs
+    const paragraphs = document.querySelectorAll('p');
+    console.log(`[News Insight] Observing ${paragraphs.length} paragraphs.`);
+    paragraphs.forEach(p => observer.observe(p));
+
+    function handleIntersection(entries, observer) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const p = entry.target;
+                console.log('[News Insight] Paragraph is intersecting:', p);
+                // Stop observing once it has been processed
+                observer.unobserve(p);
+                // Analyze the paragraph
+                analyzeAndHighlight(p);
+            }
+        });
+    }
+
+    async function analyzeAndHighlight(p) {
+        const text = p.innerText;
+        if (!text || text.trim().length < 50) return; // Ignore short paragraphs
+
+        console.log('[News Insight] Analyzing paragraph for highlighting:', p);
+        console.log('[News Insight] Preparing to send HIGHLIGHT_LANGUAGE message.'); // New log
+        chrome.runtime.sendMessage({ type: 'HIGHLIGHT_LANGUAGE', payload: { text } }, response => {
+            console.log('[News Insight] sendMessage callback entered.'); // New log
+            if (chrome.runtime.lastError) {
+                console.error('[News Insight] Error sending message to background:', chrome.runtime.lastError);
+                return;
+            }
+
+            console.log('[News Insight] Received response from background for highlighting:', response);
+
+            if (response && response.ok && response.data && response.data.phrases) {
+                console.log('[News Insight] Highlighting data received:', response.data.phrases);
+                highlightPhrases(p, response.data.phrases);
+            } else {
+                console.warn('[News Insight] Received invalid or error response for highlighting. Response:', response);
+            }
+        });
+    }
+
+    function highlightPhrases(element, phrases) {
+        if (!phrases || !phrases.items || phrases.items.length === 0) {
+            console.log('[News Insight] No phrases to highlight.');
+            return;
+        }
+
+        console.log(`[News Insight] Attempting to highlight ${phrases.items.length} phrases in element:`, element);
+        let innerHTML = element.innerHTML;
+        let highlights = 0;
+
+        phrases.items.forEach((phraseObj, index) => {
+            try {
+                const phrase = phraseObj.label;
+                if (!phrase) {
+                    console.warn(`[News Insight] Phrase object at index ${index} is missing a 'label'.`, phraseObj);
+                    return;
+                }
+
+                console.log(`[News Insight] Processing phrase #${index + 1}: "${phrase}"`);
+
+                // Escape special characters in the phrase to use it in a regex
+                const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`\\b(${escapedPhrase})\\b`, 'gi');
+
+                if (regex.test(innerHTML)) {
+                    innerHTML = innerHTML.replace(regex, '<mark class="unbias-highlight">$1</mark>');
+                    highlights++;
+                    console.log(`[News Insight]   -> Highlighted "${phrase}"`);
+                } else {
+                    console.log(`[News Insight]   -> Phrase "${phrase}" not found in paragraph.`);
+                }
+            } catch (e) {
+                console.error(`[News Insight] Error processing phrase: "${phraseObj.label}"`, e);
+            }
+        });
+
+        if (highlights > 0) {
+            element.innerHTML = innerHTML;
+            console.log(`[News Insight] Applied ${highlights} highlights to the paragraph.`);
+        } else {
+            console.log('[News Insight] No phrases were highlighted in this paragraph.');
+        }
+    }
+})();

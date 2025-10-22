@@ -1,4 +1,4 @@
-import { summarizeArticle, analyzeBiases, extractAndCheckClaims } from '../api/index.js';
+import { summarizeArticle, analyzeBiases, extractAndCheckClaims, identifyLanguage } from '../api/index.js';
 
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
@@ -66,9 +66,10 @@ async function analyseWebpage(pageContent) {
 		
 		// Get LanguageModel params and create session
 		const params = await LanguageModel.params();
+		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
 		const session = await LanguageModel.create({
 			temperature: 2.0,
-			topK: params.defaultTopK,
+			topK: topK,
 		});
 		
 		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
@@ -98,9 +99,10 @@ chrome.runtime.onInstalled.addListener(async () => {
 		
 		// Initializing a new session must either specify both `topK` and
 		// `temperature` or neither of them.
+		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
 		const slightlyHighTemperatureSession = await LanguageModel.create({
 			temperature: 2.0,
-			topK: params.defaultTopK,
+			topK: topK,
 		});
 		
 		// Get page content from storage and ask a predefined question
@@ -158,6 +160,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		})();
 		return true; // async
 	}
+	if (message?.type === 'HIGHLIGHT_LANGUAGE') {
+        (async () => {
+            try {
+                const content = message.payload;
+                console.log('[News Insight] Received HIGHLIGHT_LANGUAGE request with content:', content);
+
+                if (!content?.text) {
+                    console.warn('[News Insight] HIGHLIGHT_LANGUAGE request is missing text content.');
+                    sendResponse({ ok: false, error: 'No content to analyze' });
+                    return;
+                }
+
+                const phrases = await identifyLanguage(content);
+                console.log('[News Insight] Identified phrases for highlighting:', phrases);
+
+                console.log('[News Insight] Sending response for HIGHLIGHT_LANGUAGE:', { ok: true, data: { phrases } });
+                sendResponse({ ok: true, data: { phrases } });
+            } catch (e) {
+                console.error('[News Insight] Failed to identify language for highlighting.', e);
+                sendResponse({ ok: false, error: (e && e.message) || 'Analysis failed', details: e });
+            }
+        })();
+        return true; // async
+    }
 	if (message?.type === 'ANALYSE_WEBPAGE') {
 		(async () => {
 			try {

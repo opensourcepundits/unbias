@@ -56,3 +56,15 @@ unbias/
 ├── manifest.json
 └── README.md
 ```
+
+## Main Functions
+
+This project is a Chrome extension with the following main components:
+
+*   **`background/service-worker.js`**: This script runs in the background to handle tasks such as API communication, event handling, and managing the extension's state.
+*   **`content/content.js`**: This script is injected into web pages to interact with the content. It can read and modify the DOM, which is essential for features like highlighting text or displaying in-page information.
+*   **`popup/`**: This directory contains the files for the extension's popup UI.
+    *   `popup.html`: The main HTML structure of the popup.
+    *   `popup.css`: The stylesheet for the popup.
+    *   `popup.js`: The script that handles user interactions within the popup.
+*   **`api/index.js`**: This could be a backend component for handling API requests, although its exact function would depend on the project's architecture.
