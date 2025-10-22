@@ -65,11 +65,88 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // 1. Add styles for highlighting
     const style = document.createElement('style');
     style.textContent = `
-        .unbias-highlight {
+        .unbias-highlight-loaded {
             background-color: transparent;
-            border-bottom: 2px solid rgba(255, 182, 193, 0.7);
+            border-bottom: 2px solid rgba(220, 20, 60, 0.7); /* Vermilion for Loaded Language */
             padding-bottom: 1px;
+            position: relative;
+            cursor: help;
         }
+        .unbias-highlight-loaded::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-highlight-loaded:hover::after {
+            opacity: 1;
+        }
+        .unbias-highlight-absolute {
+            background-color: transparent;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.7); /* Amber for Absolutes */
+            padding-bottom: 1px;
+            position: relative;
+            cursor: help;
+        }
+        .unbias-highlight-absolute::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-highlight-absolute:hover::after {
+            opacity: 1;
+        }
+        .unbias-highlight-weak {
+            background-color: transparent;
+            border-bottom: 2px solid rgba(100, 149, 237, 0.7); /* Cornflower Blue for Weak Sources */
+            padding-bottom: 1px;
+            position: relative;
+            cursor: help;
+        }
+        .unbias-highlight-weak::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-highlight-weak:hover::after {
+            opacity: 1;
+        }
+
     `;
     document.head.appendChild(style);
 
@@ -109,7 +186,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
             console.log('[News Insight] Received response from background for highlighting:', response);
 
-            if (response && response.ok && response.data && response.data.phrases) {
+            if (response && response.ok && response.data && response.data.phrases && Array.isArray(response.data.phrases)) {
                 console.log('[News Insight] Highlighting data received:', response.data.phrases);
                 highlightPhrases(p, response.data.phrases);
             } else {
@@ -119,38 +196,57 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
 
     function highlightPhrases(element, phrases) {
-        if (!phrases || !phrases.items || phrases.items.length === 0) {
+        if (!phrases || phrases.length === 0) {
             console.log('[News Insight] No phrases to highlight.');
             return;
         }
 
-        console.log(`[News Insight] Attempting to highlight ${phrases.items.length} phrases in element:`, element);
+        console.log(`[News Insight] Attempting to highlight ${phrases.length} phrases in element:`, element);
         let innerHTML = element.innerHTML;
         let highlights = 0;
 
-        phrases.items.forEach((phraseObj, index) => {
+        phrases.forEach((phraseObj, index) => {
             try {
-                const phrase = phraseObj.label;
-                if (!phrase) {
-                    console.warn(`[News Insight] Phrase object at index ${index} is missing a 'label'.`, phraseObj);
+                const phrase = phraseObj.phrase;
+                const category = phraseObj.category;
+                if (!phrase || !category) {
+                    console.warn(`[News Insight] Phrase object at index ${index} is missing 'phrase' or 'category'.`, phraseObj);
                     return;
                 }
 
-                console.log(`[News Insight] Processing phrase #${index + 1}: "${phrase}"`);
+                console.log(`[News Insight] Processing phrase #${index + 1}: "${phrase}" (Category: ${category})`);
+
+                // Determine the class and tooltip based on category
+                let highlightClass = 'unbias-highlight'; // Default
+                let tooltip = '';
+                switch (category) {
+                    case 'LOADED_LANGUAGE':
+                        highlightClass = 'unbias-highlight-loaded';
+                        tooltip = 'Loaded & Emotional Language: Words designed to provoke strong emotional responses instead of rational ones.';
+                        break;
+                    case 'ABSOLUTE_GENERALIZATION':
+                        highlightClass = 'unbias-highlight-absolute';
+                        tooltip = 'Absolutes & Hyperbole: Sweeping, all-or-nothing generalizations that are often unprovable.';
+                        break;
+                    case 'WEAK_SOURCE':
+                        highlightClass = 'unbias-highlight-weak';
+                        tooltip = 'Vague & Uncertain Language: Words that hedge or obscure claims, often from anonymous sources.';
+                        break;
+                }
 
                 // Escape special characters in the phrase to use it in a regex
                 const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`\\b(${escapedPhrase})\\b`, 'gi');
 
                 if (regex.test(innerHTML)) {
-                    innerHTML = innerHTML.replace(regex, '<mark class="unbias-highlight">$1</mark>');
+                    innerHTML = innerHTML.replace(regex, `<mark class="${highlightClass}" data-tooltip='${tooltip}'>$1</mark>`);
                     highlights++;
-                    console.log(`[News Insight]   -> Highlighted "${phrase}"`);
+                    console.log(`[News Insight]   -> Highlighted "${phrase}" with class ${highlightClass}`);
                 } else {
                     console.log(`[News Insight]   -> Phrase "${phrase}" not found in paragraph.`);
                 }
             } catch (e) {
-                console.error(`[News Insight] Error processing phrase: "${phraseObj.label}"`, e);
+                console.error(`[News Insight] Error processing phrase: "${phraseObj.phrase}"`, e);
             }
         });
 

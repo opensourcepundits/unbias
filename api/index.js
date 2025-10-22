@@ -57,10 +57,11 @@ export async function identifyLanguage(content) {
 			topK: topK,
 		});
 
-		const prompt = `From the following text, identify and extract phrases that are emotionally charged, subjective, or represent potential logical fallacies. Return ONLY a valid JSON object in the format: {"items": [{"label": "phrase1"}, {"label": "phrase2"}]} where each phrase is a string.
+		const prompt = `You are a media literacy expert. Analyze the following text. Return a JSON array of phrases that fall into one of these categories: 'LOADED_LANGUAGE', 'ABSOLUTE_GENERALIZATION', or 'WEAK_SOURCE'.
 
-Text:
-${content.text}`;
+Text: ${content.text}
+
+JSON Output: [ { "phrase": "example phrase", "category": "LOADED_LANGUAGE" }, { "phrase": "another phrase", "category": "ABSOLUTE_GENERALIZATION" } ]`;
 
 		console.log('[News Insight] Processing prompt with LanguageModel API for highlighting...');
 		const response = await session.prompt(prompt);
@@ -70,17 +71,23 @@ ${content.text}`;
 
 		// Parse the response as JSON if possible, otherwise return as is
 		// First, try to extract JSON from the response in case the model added extra text
-		const jsonMatch = response.match(/\{[\s\S]*\}/);
+		const jsonMatch = response.match(/\[[\s\S]*\]/); // Match array format
 		if (jsonMatch) {
 			try {
-				return JSON.parse(jsonMatch[0]);
+				const parsed = JSON.parse(jsonMatch[0]);
+				// Ensure it's an array and map to expected format if needed
+				if (Array.isArray(parsed)) {
+					return parsed; // Return array directly
+				} else {
+					return { items: parsed }; // Fallback to object with items
+				}
 			} catch (parseError) {
 				console.warn('[News Insight] Failed to parse extracted JSON, returning raw response');
-				return { items: [{ label: response.trim() }] }; // Fallback structure
+				return [{ phrase: response.trim(), category: 'LOADED_LANGUAGE' }]; // Fallback structure
 			}
 		} else {
 			console.warn('[News Insight] No JSON found in response, returning raw response');
-			return { items: [{ label: response.trim() }] }; // Fallback structure
+			return [{ phrase: response.trim(), category: 'LOADED_LANGUAGE' }]; // Fallback structure
 		}
 	} catch (error) {
 		console.error('[News Insight] Error identifying language with LanguageModel:', error);
