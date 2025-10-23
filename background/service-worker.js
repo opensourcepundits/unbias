@@ -89,15 +89,15 @@ async function analyseWebpage(pageContent) {
 	}
 }
 
+// Create context menu for images
+chrome.contextMenus.create({
+	id: "analyseImage",
+	title: "Analyse",
+	contexts: ["image"]
+});
+
 chrome.runtime.onInstalled.addListener(async () => {
 	chrome.storage.session.clear();
-
-	// Create context menu for images
-	chrome.contextMenus.create({
-		id: "analyseImage",
-		title: "Analyse",
-		contexts: ["image"]
-	});
 
 	// Log LanguageModel params when extension is loaded
 	try {
@@ -212,6 +212,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+	console.log("Context menu clicked:", info, tab);
 	if (info.menuItemId === "analyseImage") {
 		// Execute script in the active tab to log to console
 		chrome.scripting.executeScript({
@@ -219,6 +220,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 			func: () => {
 				console.log("this button works");
 			}
+		}).catch(error => {
+			console.error("Error executing script:", error);
 		});
 	}
 });
