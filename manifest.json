@@ -14,7 +14,7 @@
     "type": "module"
   },
 
-  "permissions": ["storage", "activeTab", "scripting", "identity"],
+  "permissions": ["storage", "activeTab", "scripting", "identity", "contextMenus"],
 
   "oauth2": {
     "client_id": "272062888203-681783cnui0aokqhru7ejdsupitulj5p.apps.googleusercontent.com", 

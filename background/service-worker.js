@@ -91,12 +91,19 @@ async function analyseWebpage(pageContent) {
 
 chrome.runtime.onInstalled.addListener(async () => {
 	chrome.storage.session.clear();
-	
+
+	// Create context menu for images
+	chrome.contextMenus.create({
+		id: "analyseImage",
+		title: "Analyse",
+		contexts: ["image"]
+	});
+
 	// Log LanguageModel params when extension is loaded
 	try {
 		const params = await LanguageModel.params();
 		console.log('[News Insight] Initial LanguageModel.params():', params);
-		
+
 		// Initializing a new session must either specify both `topK` and
 		// `temperature` or neither of them.
 		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
@@ -104,23 +111,23 @@ chrome.runtime.onInstalled.addListener(async () => {
 			temperature: 2.0,
 			topK: topK,
 		});
-		
+
 		// Get page content from storage and ask a predefined question
 		const { latestPageContent } = await chrome.storage.session.get('latestPageContent');
 		if (latestPageContent?.text) {
 			const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
 			const prompt = `${predefinedQuestion}\n\nPage Title: ${latestPageContent.title || 'Unknown'}\nURL: ${latestPageContent.url || 'Unknown'}\n\nContent:\n${latestPageContent.text}`;
-			
+
 			console.log('[News Insight] Processing prompt with LanguageModel API...');
 			const analysis = await slightlyHighTemperatureSession.prompt(prompt);
 			console.log('[News Insight] AI Analysis of Page Content:', analysis);
 		} else {
 			console.log('[News Insight] No page content available for analysis');
 		}
-		
+
 		slightlyHighTemperatureSession.destroy();
 
-		
+
 	} catch (error) {
 		console.error('[News Insight] Error with LanguageModel.params() or session creation:', error);
 	}
@@ -201,4 +208,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		return true; // async
 	}
 	return false;
+});
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+	if (info.menuItemId === "analyseImage") {
+		// Execute script in the active tab to log to console
+		chrome.scripting.executeScript({
+			target: { tabId: tab.id },
+			func: () => {
+				console.log("this button works");
+			}
+		});
+	}
 });
