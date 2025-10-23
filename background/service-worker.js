@@ -210,18 +210,86 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	return false;
 });
 
+// Function to resize image blob to fit within max dimensions
+async function resizeImage(blob, maxWidth, maxHeight) {
+	try {
+		// Create image bitmap from blob
+		const imageBitmap = await createImageBitmap(blob);
+
+		// Calculate new dimensions
+		let { width, height } = imageBitmap;
+		if (width > maxWidth || height > maxHeight) {
+			const ratio = Math.min(maxWidth / width, maxHeight / height);
+			width = Math.floor(width * ratio);
+			height = Math.floor(height * ratio);
+		}
+
+		// Create offscreen canvas with new dimensions
+		const canvas = new OffscreenCanvas(width, height);
+		const ctx = canvas.getContext('2d');
+
+		// Draw resized image
+		ctx.drawImage(imageBitmap, 0, 0, width, height);
+
+		// Convert to blob
+		const resizedBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.5 });
+
+		// Convert blob to data URL
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = reject;
+			reader.readAsDataURL(resizedBlob);
+		});
+	} catch (error) {
+		throw error;
+	}
+}
+
 // Handle context menu clicks
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	console.log("Context menu clicked:", info, tab);
 	if (info.menuItemId === "analyseImage") {
-		// Execute script in the active tab to log to console
-		chrome.scripting.executeScript({
-			target: { tabId: tab.id },
-			func: () => {
-				console.log("this button works");
+		try {
+			// Get the image URL from the context menu
+			const imageUrl = info.srcUrl;
+			if (!imageUrl) {
+				console.error("No image URL found in context menu click.");
+				return;
 			}
-		}).catch(error => {
-			console.error("Error executing script:", error);
-		});
+
+			// Fetch the image data
+			const response = await fetch(imageUrl);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch image: ${response.statusText}`);
+			}
+			const imageBlob = await response.blob();
+
+			// Create a session for multimodal input
+			const params = await LanguageModel.params();
+			const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+			const session = await LanguageModel.create({
+				temperature: 2.0,
+				topK: topK,
+			});
+
+			// Resize the image to reduce size
+			const resizedDataUrl = await resizeImage(imageBlob, 256, 256); // Max width/height 256px
+
+			// Prepare the prompt with the resized image
+			const prompt = `Describe this image in detail: ${resizedDataUrl}`;
+
+			// Use the session to prompt with text including the image data URL
+			const analysis = await session.prompt(prompt);
+
+			// Log the result to the console
+			console.log("Image analysis result:", analysis);
+
+			// Destroy the session
+			session.destroy();
+
+		} catch (error) {
+			console.error("Error analyzing image:", error);
+		}
 	}
 });
