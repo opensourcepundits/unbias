@@ -210,37 +210,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	return false;
 });
 
-// Function to resize image blob to fit within max dimensions
+// Function to resize image and return an ImageBitmap
 async function resizeImage(blob, maxWidth, maxHeight) {
 	try {
-		// Create image bitmap from blob
-		const imageBitmap = await createImageBitmap(blob);
-
-		// Calculate new dimensions
-		let { width, height } = imageBitmap;
-		if (width > maxWidth || height > maxHeight) {
-			const ratio = Math.min(maxWidth / width, maxHeight / height);
-			width = Math.floor(width * ratio);
-			height = Math.floor(height * ratio);
-		}
-
-		// Create offscreen canvas with new dimensions
-		const canvas = new OffscreenCanvas(width, height);
-		const ctx = canvas.getContext('2d');
-
-		// Draw resized image
-		ctx.drawImage(imageBitmap, 0, 0, width, height);
-
-		// Convert to blob
-		const resizedBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.5 });
-
-		// Convert blob to data URL
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(reader.result);
-			reader.onerror = reject;
-			reader.readAsDataURL(resizedBlob);
-		});
+		// Create image bitmap from blob with resizing
+		return await createImageBitmap(blob, {
+            resizeWidth: maxWidth,
+            resizeHeight: maxHeight,
+            resizeQuality: 'high'
+        });
 	} catch (error) {
 		throw error;
 	}
@@ -269,18 +247,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			const params = await LanguageModel.params();
 			const topK = Math.max(1, Math.min(params.defaultTopK, 100));
 			const session = await LanguageModel.create({
-				temperature: 2.0,
+				temperature: 0.8, // Lower temperature for more predictable output
 				topK: topK,
+                expectedInputs: [{ type: "image" }],
+                expectedOutputs: [{ type: "text" }]
 			});
+			
 
-			// Resize the image to reduce size
-			const resizedDataUrl = await resizeImage(imageBlob, 256, 256); // Max width/height 256px
+			// Prepare the prompt
+			const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
 
-			// Prepare the prompt with the resized image
-			const prompt = `Describe this image in detail: ${resizedDataUrl}`;
+			// Resize the image
+			const resizedImage = await resizeImage(imageBlob, 512, 512);
 
-			// Use the session to prompt with text including the image data URL
-			const analysis = await session.prompt(prompt);
+			// Use the session to prompt with text and image
+			const analysis = await session.prompt([
+                { role: "user", content: [
+                    { type: "text", value: promptText },
+                    { type: "image", value: resizedImage }
+                ]}
+            ]);
 
 			// Log the result to the console
 			console.log("Image analysis result:", analysis);
