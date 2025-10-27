@@ -1,4 +1,4 @@
-import { summarizeArticle, analyzeBiases, extractAndCheckClaims, identifyLanguage } from '../api/index.js';
+import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter } from '../api/index.js';
 
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
@@ -89,14 +89,39 @@ async function analyseWebpage(pageContent) {
 	}
 }
 
-// Create context menu for images
-chrome.contextMenus.create({
-	id: "analyseImage",
-	title: "Analyse",
-	contexts: ["image"]
-});
-
 chrome.runtime.onInstalled.addListener(async () => {
+	chrome.contextMenus.removeAll(() => {
+		chrome.contextMenus.create({
+		id: "proofread",
+		title: "Proofread",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "summarize",
+		title: "Summarize",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "analyzeBiases",
+		title: "Analyze Biases",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "extractClaims",
+		title: "Extract Claims",
+		contexts: ["selection"]
+	});
+	
+	        chrome.contextMenus.create({
+				id: "rewrite",
+				title: "Rewrite",
+				contexts: ["selection"]
+			});
+			chrome.contextMenus.create({
+				id: "analyseImage",		title: "Analyse",
+		contexts: ["image"]
+	});
+	});
 	chrome.storage.session.clear();
 
 	// Log LanguageModel params when extension is loaded
@@ -184,7 +209,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 console.log('[News Insight] Sending response for HIGHLIGHT_LANGUAGE:', { ok: true, data: { phrases } });
                 sendResponse({ ok: true, data: { phrases } });
-            } catch (e) {
+            }
+            catch (e) {
                 console.error('[News Insight] Failed to identify language for highlighting.', e);
                 sendResponse({ ok: false, error: (e && e.message) || 'Analysis failed', details: e });
             }
@@ -207,6 +233,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		})();
 		return true; // async
 	}
+	if (message?.type === 'RUN_PROOFREADER') {
+		(async () => {
+			try {
+				const content = message.payload;
+				if (!content?.text) {
+					sendResponse({ ok: false, error: 'No content to proofread' });
+					return;
+				}
+				const result = await runProofreader(content.text);
+				sendResponse({ ok: true, data: result });
+			} catch (e) {
+				sendResponse({ ok: false, error: (e && e.message) || 'Proofreading failed' });
+			}
+		})();
+		return true;
+	}
 	return false;
 });
 
@@ -227,55 +269,125 @@ async function resizeImage(blob, maxWidth, maxHeight) {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	console.log("Context menu clicked:", info, tab);
-	if (info.menuItemId === "analyseImage") {
-		try {
-			// Get the image URL from the context menu
-			const imageUrl = info.srcUrl;
-			if (!imageUrl) {
-				console.error("No image URL found in context menu click.");
-				return;
-			}
+	const selectedText = info.selectionText;
+	if (!selectedText) {
+		return;
+	}
 
-			// Fetch the image data
-			const response = await fetch(imageUrl);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch image: ${response.statusText}`);
-			}
-			const imageBlob = await response.blob();
-
-			// Create a session for multimodal input
-			const params = await LanguageModel.params();
-			const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-			const session = await LanguageModel.create({
-				temperature: 0.8, // Lower temperature for more predictable output
-				topK: topK,
-                expectedInputs: [{ type: "image" }],
-                expectedOutputs: [{ type: "text" }]
+	switch (info.menuItemId) {
+		case "proofread":
+			const proofreadResult = await runProofreader(selectedText);
+			console.log("Proofreader result:", proofreadResult);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (segments) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const fragment = document.createDocumentFragment();
+						for (const segment of segments) {
+							const span = document.createElement('span');
+							span.textContent = segment.text;
+							if (segment.explanation) {
+								span.className = 'unbias-proofread';
+								span.dataset.tooltip = segment.explanation;
+							}
+							fragment.appendChild(span);
+						}
+						range.insertNode(fragment);
+					}
+				},
+				args: [proofreadResult]
 			});
-			
+			break;
+		case "rewrite":
+			const originalText = info.selectionText;
+			const rewriteResult = await runRewriter(originalText);
+			console.log("Rewriter result:", rewriteResult);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (original, rewritten) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-rewritten';
+						span.dataset.tooltip = original;
+						span.textContent = rewritten;
+						range.insertNode(span);
+					}
+				},
+				args: [originalText, rewriteResult]
+			});
+			break;
+		case "summarize":
+			const summarizeResult = await summarizeArticle({ text: selectedText });
+			console.log("Summarize result:", summarizeResult);
+			break;
+		case "analyzeBiases":
+			const analyzeBiasesResult = await analyzeBiases({ text: selectedText });
+			console.log("Analyze biases result:", analyzeBiasesResult);
+			break;
+		case "extractClaims":
+			const extractClaimsResult = await extractAndCheckClaims({ text: selectedText });
+			console.log("Extract claims result:", extractClaimsResult);
+			break;
+		
+		case "analyseImage":
+			try {
+				// Get the image URL from the context menu
+				const imageUrl = info.srcUrl;
+				if (!imageUrl) {
+					console.error("No image URL found in context menu click.");
+					return;
+				}
 
-			// Prepare the prompt
-			const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
+				// Fetch the image data
+				const response = await fetch(imageUrl);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch image: ${response.statusText}`);
+				}
+				const imageBlob = await response.blob();
 
-			// Resize the image
-			const resizedImage = await resizeImage(imageBlob, 512, 512);
+				// Create a session for multimodal input
+				const params = await LanguageModel.params();
+				const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+				const session = await LanguageModel.create({
+					temperature: 0.8, // Lower temperature for more predictable output
+					topK: topK,
+					expectedInputs: [{ type: "image" }],
+					expectedOutputs: [{ type: "text" }]
+				});
+				
 
-			// Use the session to prompt with text and image
-			const analysis = await session.prompt([
-                { role: "user", content: [
-                    { type: "text", value: promptText },
-                    { type: "image", value: resizedImage }
-                ]}
-            ]);
+				// Prepare the prompt
+				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
 
-			// Log the result to the console
-			console.log("Image analysis result:", analysis);
+				// Resize the image
+				const resizedImage = await resizeImage(imageBlob, 512, 512);
 
-			// Destroy the session
-			session.destroy();
+				// Use the session to prompt with text and image
+				const analysis = await session.prompt([
+					{ role: "user", content: [
+						{ type: "text", value: promptText },
+						{ type: "image", value: resizedImage }
+					]}
+				]);
 
-		} catch (error) {
-			console.error("Error analyzing image:", error);
-		}
+				// Log the result to the console
+				console.log("Image analysis result:", analysis);
+
+				// Destroy the session
+				session.destroy();
+
+			} catch (error) {
+				console.error("Error analyzing image:", error);
+			}
+			break;
 	}
 });
+
+
+

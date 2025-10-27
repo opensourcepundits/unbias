@@ -76,14 +76,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 0;
+            width: 100%;
             background-color: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 5px 8px;
             border-radius: 4px;
             font-size: 12px;
-            white-space: nowrap;
+            white-space: normal;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -103,14 +103,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 0;
+            width: 100%;
             background-color: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 5px 8px;
             border-radius: 4px;
             font-size: 12px;
-            white-space: nowrap;
+            white-space: normal;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -130,20 +130,72 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 0;
+            width: 100%;
             background-color: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 5px 8px;
             border-radius: 4px;
             font-size: 12px;
-            white-space: nowrap;
+            white-space: normal;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
             z-index: 1000;
         }
         .unbias-highlight-weak:hover::after {
+            opacity: 1;
+        }
+
+    .unbias-rewritten {
+            background-color: rgba(173, 216, 230, 0.7); /* Light Blue for Rewritten Text */
+            position: relative;
+            cursor: help;
+        }
+        .unbias-rewritten::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: normal;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-rewritten:hover::after {
+            opacity: 1;
+        }
+
+    .unbias-proofread {
+            text-decoration: underline wavy red;
+            position: relative;
+            cursor: help;
+        }
+        .unbias-proofread::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: normal;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-proofread:hover::after {
             opacity: 1;
         }
 

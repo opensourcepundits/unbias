@@ -3,7 +3,8 @@
 
 export async function summarizeArticle(content) {
     const text = content?.text || '';
-    const titleLine = content?.title ? `Title: ${content.title}\n` : '';
+    const titleLine = content?.title ? `Title: ${content.title}
+` : '';
     const outputLanguage = getPreferredOutputLanguage();
     // Prefer on-device Summarizer API when available
     try {
@@ -29,76 +30,35 @@ export async function summarizeArticle(content) {
         // fall through to prompt-based fallback
     }
     console.log('[News Insight][AI] Falling back to local prompt-based summarizer');
-    const prompt = `Summarize the following news article in 4-6 bullet points with a neutral tone. Include: who, what, when, where, why, how.\n\n${titleLine}URL: ${content.url}\nText:\n${text}`;
+    const prompt = `Summarize the following news article in 4-6 bullet points with a neutral tone. Include: who, what, when, where, why, how.
+
+${titleLine}URL: ${content.url}
+Text:
+${text}`;
     return await runLocalSummarizer(prompt);
 }
 
 export async function analyzeBiases(content) {
-	const prompt = `Identify potential biases, loaded language, and missing perspectives in the article. Provide concise bullet points and a 0-100 subjectivity score.\n\nTitle: ${content.title}\nText:\n${content.text}`;
+	const prompt = `Identify potential biases, loaded language, and missing perspectives in the article. Provide concise bullet points and a 0-100 subjectivity score.
+
+Title: ${content.title}
+Text:
+${content.text}`;
 	return await runLocalPrompt(prompt, { structured: true });
 }
 
 export async function extractAndCheckClaims(content) {
-	const prompt = `Extract up to 8 verifiable factual claims from the article. For each claim, provide:\n- short_claim\n- confidence (0-1)\n- how_to_verify (concise steps)\nDo not fabricate sources.\n\nText:\n${content.text}`;
+	const prompt = `Extract up to 8 verifiable factual claims from the article. For each claim, provide:
+- short_claim
+- confidence (0-1)
+- how_to_verify (concise steps)
+Do not fabricate sources.
+
+Text:
+${content.text}`;
 	const claims = await runLocalPrompt(prompt, { structured: true });
 	// Optionally attempt on-device corroboration heuristics (no external network) or defer to user for cross-check links.
 	return claims;
-}
-
-export async function identifyLanguage(content) {
-	try {
-		console.log('[News Insight] Identifying language with LanguageModel...');
-
-		// Get LanguageModel params and create session, similar to analyseWebpage
-		const params = await LanguageModel.params();
-		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-		const session = await LanguageModel.create({
-			temperature: 2.0,
-			topK: topK,
-		});
-
-		const prompt = `You are a media literacy expert. Analyze the following text. Return a JSON array of phrases that fall into one of these categories: 'LOADED_LANGUAGE', 'ABSOLUTE_GENERALIZATION', or 'WEAK_SOURCE'.
-
-Text: ${content.text}
-
-JSON Output: [ { "phrase": "example phrase", "category": "LOADED_LANGUAGE" }, { "phrase": "another phrase", "category": "ABSOLUTE_GENERALIZATION" } ]`;
-
-		console.log('[News Insight] Processing prompt with LanguageModel API for highlighting...');
-		const response = await session.prompt(prompt);
-		console.log('[News Insight] LanguageModel response for highlighting:', response);
-
-		session.destroy();
-
-		// Parse the response as JSON if possible, otherwise return as is
-		// First, try to extract JSON from the response in case the model added extra text
-		const jsonMatch = response.match(/\[[\s\S]*\]/); // Match array format
-		if (jsonMatch) {
-			try {
-				const parsed = JSON.parse(jsonMatch[0]);
-				// Ensure it's an array and map to expected format if needed
-				if (Array.isArray(parsed)) {
-					return parsed; // Return array directly
-				} else {
-					return { items: parsed }; // Fallback to object with items
-				}
-			} catch (parseError) {
-				console.warn('[News Insight] Failed to parse extracted JSON, returning raw response');
-				return [{ phrase: response.trim(), category: 'LOADED_LANGUAGE' }]; // Fallback structure
-			}
-		} else {
-			console.warn('[News Insight] No JSON found in response, returning raw response');
-			return [{ phrase: response.trim(), category: 'LOADED_LANGUAGE' }]; // Fallback structure
-		}
-	} catch (error) {
-		console.error('[News Insight] Error identifying language with LanguageModel:', error);
-		// Fallback to placeholder if LanguageModel fails
-		console.warn('[News Insight][AI] LanguageModel unavailable for highlighting, returning placeholder');
-		return {
-			items: [
-				{ label: 'Potential framing bias', detail: 'Focus on partisan quotes without counterpoints', score: 0.62 },
-			]
-		};
-	}
 }
 
 async function runLocalSummarizer(input) {
@@ -127,7 +87,9 @@ async function runLocalPrompt(prompt, options = {}) {
             ]
         };
     }
-    return `Placeholder analysis. Replace with on-device Prompt API.\n\n${prompt.slice(0, 240)}...`;
+    return `Placeholder analysis. Replace with on-device Prompt API.
+
+${prompt.slice(0, 240)}...`;
 }
 
 async function tryCreateSummarizer() {
@@ -234,5 +196,81 @@ function getPreferredOutputLanguage() {
         return supported.includes(lang) ? lang : 'en';
     } catch (_) {
         return 'en';
+    }
+}
+
+function chunkText(text, chunkSize = 2000) {
+	const chunks = [];
+	for (let i = 0; i < text.length; i += chunkSize) {
+		chunks.push(text.substring(i, i + chunkSize));
+	}
+	return chunks;
+}
+
+export async function runRewriter(text) {
+    try {
+        console.log('[News Insight][AI] Running rewriter on text:', text);
+        const rewriter = await Rewriter.create();
+        const result = await rewriter.rewrite(text);
+        console.log('[News Insight][AI] Rewritten text:', result);
+        return result;
+    } catch (error) {
+        console.error('[News Insight][AI] Rewriter API error:', error);
+        return text + ' [rewritten]'; // Placeholder fallback
+    }
+}
+
+export async function runProofreader(text) {
+    console.log('--- ENTERING runProofreader ---');
+    try {
+        console.log('--- CHECKING PROOFREADER AVAILABILITY ---');
+        const availability = await Proofreader.availability({includeCorrectionExplanations: true});
+        console.log('--- PROOFREADER AVAILABILITY ---', availability);
+        if (availability === 'unavailable') {
+            console.log('--- PROOFREADER API NOT AVAILABLE, RETURNING ORIGINAL TEXT ---');
+            return [{text: text}];
+        }
+
+        console.log('[News Insight][AI] Running proofreader on text:', text);
+        const proofreader = await Proofreader.create({includeCorrectionExplanations: true});
+        console.log('--- PROOFREADER API INPUT ---', text);
+        const result = await proofreader.proofread(text);
+        console.log('--- PROOFREADER API OUTPUT ---', JSON.stringify(result, null, 2));
+
+        if (!result || !result.corrections || result.corrections.length === 0) {
+            console.log('--- NO CORRECTIONS FOUND, RETURNING ORIGINAL TEXT ---');
+            return [{text: text}];
+        }
+
+        console.log('--- PROCESSING CORRECTIONS ---');
+        const corrections = result.corrections.sort((a, b) => a.offset - b.offset);
+
+        const segments = [];
+        let lastOffset = 0;
+        for (const correction of corrections) {
+            // Add the text before the correction
+            if (correction.offset > lastOffset) {
+                segments.push({ text: text.substring(lastOffset, correction.offset) });
+            }
+            // Add the corrected text with tooltip
+            segments.push({
+                text: correction.correction,
+                original: text.substring(correction.offset, correction.offset + correction.length),
+                explanation: correction.explanation
+            });
+            lastOffset = correction.offset + correction.length;
+        }
+        // Add the remaining text
+        if (lastOffset < text.length) {
+            segments.push({ text: text.substring(lastOffset) });
+        }
+
+        console.log('[News Insight][AI] Corrected segments:', segments);
+        console.log('--- LEAVING runProofreader ---');
+        return segments;
+    } catch (error) {
+        console.error('[News Insight][AI] Proofreader API error:', error);
+        console.log('--- ERROR IN runProofreader, RETURNING ORIGINAL TEXT ---');
+        return [{text: text}]; // Return original text on error
     }
 }

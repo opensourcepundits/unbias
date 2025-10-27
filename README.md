@@ -104,3 +104,7 @@ The highlighter uses color-coded underlines to indicate different categories of 
 5. **No Hard-Coded Lists**: Instead of relying on static word lists, the feature uses AI to adapt to context, ensuring accurate detection in various scenarios (e.g., "threat" in a weather report vs. political rhetoric).
 
 This feature promotes media literacy by making users aware of manipulative language without interrupting their reading experience.
+
+### Proofreader
+
+The Proofreader feature allows you to check the spelling and grammar of the text on a webpage. It uses the built-in Proofreader API to identify and suggest corrections for any errors found in the page content.

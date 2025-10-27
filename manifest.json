@@ -14,7 +14,7 @@
     "type": "module"
   },
 
-  "permissions": ["storage", "activeTab", "scripting", "identity", "contextMenus"],
+  "permissions": ["storage", "activeTab", "scripting", "identity", "contextMenus", "proofreader", "summarizer", "language_model"],
 
   "oauth2": {
     "client_id": "272062888203-681783cnui0aokqhru7ejdsupitulj5p.apps.googleusercontent.com", 
@@ -25,7 +25,8 @@
   },
   "host_permissions": ["<all_urls>"],
 "key": "dbicgnapomofjhbppmjphbldicpobpgg",  
-"trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ=="],
+"trial_tokens": ["A5FpPlKld8Pd1c53lckV8PstpbGlTk1wUa2rrOjzmOnH5AtyzcW7dVAgRNlHEbs2z9txHttcSAKHRasSc2eUjg0AAACCeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZGJpY2duYXBvbW9mamhicHBtanBoYmxkaWNwb2JwZ2ciLCJmZWF0dXJlIjoiQUlSZXdyaXRlckFQSSIsImV4cGlyeSI6MTc2OTQ3MjAwMCwiaXNUaGlyZFBhcnR5Ijp0cnVlfQ==", "AteYYLc6SIbhXEqWYSbeP+RVilx9QhDN3aiJWqcVCt9CF0SG8x/YyGRza56fV0dfL2ak/xgU+uELd4r02TW4zgYAAABxeyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vbWphZ2liZG1sZW5nbHBpZ2hnYmhhbGZuY2hnbWZoanAiLCJmZWF0dXJlIjoiQUlQcm9vZnJlYWRlckFQSSIsImV4cGlyeSI6MTc3OTE0ODgwMH0="],
+
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
