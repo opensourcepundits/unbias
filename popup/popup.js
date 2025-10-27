@@ -384,6 +384,11 @@ window.addEventListener('DOMContentLoaded', () => {
 		extractDatesBtn.addEventListener('click', extractDates);
 	}
 
+	const proofreadBtn = document.getElementById('proofreadBtn');
+	if (proofreadBtn) {
+		proofreadBtn.addEventListener('click', runProofreader);
+	}
+
 	// Run startup flow: fetch and cache page content, then update button colors
 	OnStartUp({
 		summarizeBtn: document.getElementById('analyzeBtn'),
@@ -392,6 +397,50 @@ window.addEventListener('DOMContentLoaded', () => {
 		speakBtn
 	}).catch(err => console.warn('[News Insight][Popup] OnStartUp failed', err));
 });
+
+async function runProofreader() {
+	const outputDiv = document.getElementById('proofreader-output');
+	outputDiv.innerHTML = 'Proofreading…';
+	let pageText = null;
+	try {
+		if (cachedPageContent?.text) {
+			pageText = cachedPageContent.text;
+		} else {
+			const tabId = await getActiveTabId();
+			const payload = await requestPageContent(tabId);
+			if (payload?.text) {
+				pageText = payload.text;
+			}
+		}
+		if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
+
+		const res = await chrome.runtime.sendMessage({ type: 'RUN_PROOFREADER', payload: { text: pageText } });
+
+		if (res?.ok) {
+			renderProofreader(res.data);
+		} else {
+			outputDiv.innerHTML = `<span style='color:red;'>Failed: ${res?.error || 'Failed to proofread.'}</span>`;
+		}
+	} catch (err) {
+		outputDiv.innerHTML = `<span style='color:red;'>Failed: ${err.message}</span>`;
+		console.warn('[Proofreader]', err);
+	}
+}
+
+function renderProofreader(data) {
+	const outputDiv = document.getElementById('proofreader-output');
+	let htmlContent = '';
+	if (data?.corrections?.length > 0) {
+		htmlContent += '<div style="margin-bottom: 15px;"><strong>Corrections:</strong></div>';
+		data.corrections.forEach(correction => {
+			htmlContent += `<div style='margin-bottom:8px; margin-left: 10px;'><strong>Original:</strong> ${correction.original}</div>`;
+			htmlContent += `<div style='margin-bottom:8px; margin-left: 10px;'><strong>Correction:</strong> ${correction.correction}</div>`;
+		});
+	} else {
+		htmlContent = 'No corrections found.';
+	}
+	outputDiv.innerHTML = htmlContent;
+}
 
 async function runAction(actionType) {
 	await logSummarizerAvailability();

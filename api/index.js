@@ -3,7 +3,8 @@
 
 export async function summarizeArticle(content) {
     const text = content?.text || '';
-    const titleLine = content?.title ? `Title: ${content.title}\n` : '';
+    const titleLine = content?.title ? `Title: ${content.title}
+` : '';
     const outputLanguage = getPreferredOutputLanguage();
     // Prefer on-device Summarizer API when available
     try {
@@ -29,24 +30,40 @@ export async function summarizeArticle(content) {
         // fall through to prompt-based fallback
     }
     console.log('[News Insight][AI] Falling back to local prompt-based summarizer');
-    const prompt = `Summarize the following news article in 4-6 bullet points with a neutral tone. Include: who, what, when, where, why, how.\n\n${titleLine}URL: ${content.url}\nText:\n${text}`;
+    const prompt = `Summarize the following news article in 4-6 bullet points with a neutral tone. Include: who, what, when, where, why, how.
+
+${titleLine}URL: ${content.url}
+Text:
+${text}`;
     return await runLocalSummarizer(prompt);
 }
 
 export async function analyzeBiases(content) {
-	const prompt = `Identify potential biases, loaded language, and missing perspectives in the article. Provide concise bullet points and a 0-100 subjectivity score.\n\nTitle: ${content.title}\nText:\n${content.text}`;
+	const prompt = `Identify potential biases, loaded language, and missing perspectives in the article. Provide concise bullet points and a 0-100 subjectivity score.
+
+Title: ${content.title}
+Text:
+${content.text}`;
 	return await runLocalPrompt(prompt, { structured: true });
 }
 
 export async function extractAndCheckClaims(content) {
-	const prompt = `Extract up to 8 verifiable factual claims from the article. For each claim, provide:\n- short_claim\n- confidence (0-1)\n- how_to_verify (concise steps)\nDo not fabricate sources.\n\nText:\n${content.text}`;
+	const prompt = `Extract up to 8 verifiable factual claims from the article. For each claim, provide:
+- short_claim
+- confidence (0-1)
+- how_to_verify (concise steps)
+Do not fabricate sources.
+
+Text:
+${content.text}`;
 	const claims = await runLocalPrompt(prompt, { structured: true });
 	// Optionally attempt on-device corroboration heuristics (no external network) or defer to user for cross-check links.
 	return claims;
 }
 
 async function runLocalSummarizer(input) {
-    return await runLocalPrompt(`SUMMARIZE:\n${input}`);
+    return await runLocalPrompt(`SUMMARIZE:
+${input}`);
 }
 
 async function runLocalPrompt(prompt, options = {}) {
@@ -70,7 +87,9 @@ async function runLocalPrompt(prompt, options = {}) {
             ]
         };
     }
-    return `Placeholder analysis. Replace with on-device Prompt API.\n\n${prompt.slice(0, 240)}...`;
+    return `Placeholder analysis. Replace with on-device Prompt API.
+
+${prompt.slice(0, 240)}...`;
 }
 
 async function tryCreateSummarizer() {
@@ -177,5 +196,81 @@ function getPreferredOutputLanguage() {
         return supported.includes(lang) ? lang : 'en';
     } catch (_) {
         return 'en';
+    }
+}
+
+function chunkText(text, chunkSize = 2000) {
+	const chunks = [];
+	for (let i = 0; i < text.length; i += chunkSize) {
+		chunks.push(text.substring(i, i + chunkSize));
+	}
+	return chunks;
+}
+
+export async function runRewriter(text) {
+    try {
+        console.log('[News Insight][AI] Running rewriter on text:', text);
+        const rewriter = await Rewriter.create();
+        const result = await rewriter.rewrite(text);
+        console.log('[News Insight][AI] Rewritten text:', result);
+        return result;
+    } catch (error) {
+        console.error('[News Insight][AI] Rewriter API error:', error);
+        return text + ' [rewritten]'; // Placeholder fallback
+    }
+}
+
+export async function runProofreader(text) {
+    console.log('--- ENTERING runProofreader ---');
+    try {
+        console.log('--- CHECKING PROOFREADER AVAILABILITY ---');
+        const availability = await Proofreader.availability({includeCorrectionExplanations: true});
+        console.log('--- PROOFREADER AVAILABILITY ---', availability);
+        if (availability === 'unavailable') {
+            console.log('--- PROOFREADER API NOT AVAILABLE, RETURNING ORIGINAL TEXT ---');
+            return [{text: text}];
+        }
+
+        console.log('[News Insight][AI] Running proofreader on text:', text);
+        const proofreader = await Proofreader.create({includeCorrectionExplanations: true});
+        console.log('--- PROOFREADER API INPUT ---', text);
+        const result = await proofreader.proofread(text);
+        console.log('--- PROOFREADER API OUTPUT ---', JSON.stringify(result, null, 2));
+
+        if (!result || !result.corrections || result.corrections.length === 0) {
+            console.log('--- NO CORRECTIONS FOUND, RETURNING ORIGINAL TEXT ---');
+            return [{text: text}];
+        }
+
+        console.log('--- PROCESSING CORRECTIONS ---');
+        const corrections = result.corrections.sort((a, b) => a.offset - b.offset);
+
+        const segments = [];
+        let lastOffset = 0;
+        for (const correction of corrections) {
+            // Add the text before the correction
+            if (correction.offset > lastOffset) {
+                segments.push({ text: text.substring(lastOffset, correction.offset) });
+            }
+            // Add the corrected text with tooltip
+            segments.push({
+                text: correction.correction,
+                original: text.substring(correction.offset, correction.offset + correction.length),
+                explanation: correction.explanation
+            });
+            lastOffset = correction.offset + correction.length;
+        }
+        // Add the remaining text
+        if (lastOffset < text.length) {
+            segments.push({ text: text.substring(lastOffset) });
+        }
+
+        console.log('[News Insight][AI] Corrected segments:', segments);
+        console.log('--- LEAVING runProofreader ---');
+        return segments;
+    } catch (error) {
+        console.error('[News Insight][AI] Proofreader API error:', error);
+        console.log('--- ERROR IN runProofreader, RETURNING ORIGINAL TEXT ---');
+        return [{text: text}]; // Return original text on error
     }
 }
