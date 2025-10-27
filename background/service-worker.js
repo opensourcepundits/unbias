@@ -291,7 +291,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 							span.textContent = segment.text;
 							if (segment.explanation) {
 								span.className = 'unbias-proofread';
-								span.dataset.tooltip = segment.explanation;
+								span.dataset.tooltip = segment.explanation.replace(/\n/g, '<br>');
 							}
 							fragment.appendChild(span);
 						}
@@ -314,7 +314,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 						range.deleteContents();
 						const span = document.createElement('span');
 						span.className = 'unbias-rewritten';
-						span.dataset.tooltip = original;
+						span.dataset.tooltip = original.replace(/\n/g, '<br>');
 						span.textContent = rewritten;
 						range.insertNode(span);
 					}
@@ -323,16 +323,123 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			});
 			break;
 		case "summarize":
-			const summarizeResult = await summarizeArticle({ text: selectedText });
+			const originalTextForSummary = info.selectionText;
+			const summarizeResult = await summarizeArticle({ text: originalTextForSummary });
 			console.log("Summarize result:", summarizeResult);
+
+			// Get the original HTML of the selection
+			const originalHTMLForSummary = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
+
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, summary) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-summary';
+						span.dataset.tooltip = summary;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
+			});
 			break;
 		case "analyzeBiases":
-			const analyzeBiasesResult = await analyzeBiases({ text: selectedText });
+			const originalTextForBiases = info.selectionText;
+			const analyzeBiasesResult = await analyzeBiases({ text: originalTextForBiases });
 			console.log("Analyze biases result:", analyzeBiasesResult);
+			let formattedBiases = "No biases found.";
+			if (analyzeBiasesResult && analyzeBiasesResult.items && analyzeBiasesResult.items.length > 0) {
+				formattedBiases = analyzeBiasesResult.items.map(item => `${item.label}: ${item.detail}`).join('\n');
+			}
+
+			// Get the original HTML of the selection
+			const originalHTMLForBiases = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
+
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, biases) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-analysis';
+						span.dataset.tooltip = biases;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForBiases[0].result, formattedBiases.replace(/\n/g, '<br>')]
+			});
 			break;
 		case "extractClaims":
-			const extractClaimsResult = await extractAndCheckClaims({ text: selectedText });
+			const originalTextForClaims = info.selectionText;
+			const extractClaimsResult = await extractAndCheckClaims({ text: originalTextForClaims });
 			console.log("Extract claims result:", extractClaimsResult);
+			let formattedClaims = "No claims found.";
+			if (extractClaimsResult && extractClaimsResult.items && extractClaimsResult.items.length > 0) {
+				formattedClaims = extractClaimsResult.items.map(item => `Claim: ${item.short_claim}\nConfidence: ${item.confidence}\nHow to verify: ${item.how_to_verify}`).join('\n\n');
+			}
+
+			// Get the original HTML of the selection
+			const originalHTMLForClaims = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
+
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, claims) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-claims';
+						span.dataset.tooltip = claims;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForClaims[0].result, formattedClaims.replace(/\n/g, '<br>')]
+			});
 			break;
 		
 		case "analyseImage":

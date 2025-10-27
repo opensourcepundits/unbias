@@ -84,6 +84,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             border-radius: 4px;
             font-size: 12px;
             white-space: normal;
+            word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -111,6 +112,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             border-radius: 4px;
             font-size: 12px;
             white-space: normal;
+            word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -138,6 +140,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             border-radius: 4px;
             font-size: 12px;
             white-space: normal;
+            word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -164,6 +167,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             border-radius: 4px;
             font-size: 12px;
             white-space: normal;
+            word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -190,12 +194,94 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             border-radius: 4px;
             font-size: 12px;
             white-space: normal;
+            word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
             z-index: 1000;
         }
         .unbias-proofread:hover::after {
+            opacity: 1;
+        }
+
+    .unbias-summary {
+            background-color: rgba(144, 238, 144, 0.7); /* Light Green for Summary */
+            position: relative;
+            cursor: help;
+        }
+        .unbias-summary::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: normal;
+            word-wrap: break-word;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-summary:hover::after {
+            opacity: 1;
+        }
+
+    .unbias-analysis {
+            background-color: rgba(221, 160, 221, 0.7); /* Plum for Analysis */
+            position: relative;
+            cursor: help;
+        }
+        .unbias-analysis::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: normal;
+            word-wrap: break-word;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-analysis:hover::after {
+            opacity: 1;
+        }
+
+    .unbias-claims {
+            background-color: rgba(255, 223, 186, 0.7); /* Light Orange for Claims */
+            position: relative;
+            cursor: help;
+        }
+        .unbias-claims::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: normal;
+            word-wrap: break-word;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .unbias-claims:hover::after {
             opacity: 1;
         }
 
