@@ -1,5 +1,47 @@
 let cachedPageContent = null;
 
+// Default settings - all features enabled by default
+const DEFAULT_SETTINGS = {
+	highlightLoadedLanguage: true,
+	highlightAbsolutes: true,
+	highlightWeakSources: true,
+	summaryGeneration: true,
+	biasDetection: true,
+	claimsExtraction: true,
+	aiAnalysis: true,
+	contentRewriting: true,
+	criticalThinking: true,
+	calendarEvents: true
+};
+
+// Get settings from storage
+async function getSettings() {
+	try {
+		const stored = await chrome.storage.sync.get('extensionSettings');
+		return stored.extensionSettings || DEFAULT_SETTINGS;
+	} catch (error) {
+		console.error('[News Insight][Popup] Error getting settings:', error);
+		return DEFAULT_SETTINGS;
+	}
+}
+
+// Check if a feature is enabled
+async function isFeatureEnabled(featureName) {
+	const settings = await getSettings();
+	return settings[featureName] !== false;
+}
+
+// Show disabled feature message
+function showFeatureDisabledMessage(featureName, targetElementId = 'summary') {
+	const element = document.getElementById(targetElementId);
+	if (element) {
+		element.innerHTML = `<div style="color: #dc2626; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-align: center;">
+			<strong>${featureName}</strong> is currently disabled.<br/>
+			<span style="font-size: 12px; color: #991b1b;">Enable it in settings to use this feature.</span>
+		</div>`;
+	}
+}
+
 async function getActiveTabId() {
 	const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 	return tab?.id;
@@ -112,6 +154,16 @@ function switchToTab(tabName) {
 }
 
 async function runAnalysis() {
+	// Check if features are enabled
+	const summaryEnabled = await isFeatureEnabled('summaryGeneration');
+	const biasEnabled = await isFeatureEnabled('biasDetection');
+	const claimsEnabled = await isFeatureEnabled('claimsExtraction');
+	
+	if (!summaryEnabled && !biasEnabled && !claimsEnabled) {
+		showFeatureDisabledMessage('All analysis features', 'summary');
+		return;
+	}
+	
 	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
 	let payload = await requestPageContent(tabId);
@@ -122,9 +174,9 @@ async function runAnalysis() {
 	}
 	const res = await chrome.runtime.sendMessage({ type: 'RUN_ANALYSIS', payload });
 	if (res?.ok) {
-		renderSummary(res.data.summary);
-		renderBiases(res.data.biases);
-		renderClaims(res.data.claims);
+		if (summaryEnabled) renderSummary(res.data.summary);
+		if (biasEnabled) renderBiases(res.data.biases);
+		if (claimsEnabled) renderClaims(res.data.claims);
 	} else {
 		renderSummary(res?.error || 'Failed to analyze.');
 	}
@@ -155,6 +207,16 @@ async function logSummarizerAvailability() {
 
 async function criticalThinking() {
     const outputDiv = document.getElementById('questions-output');
+    
+    // Check if feature is enabled
+    if (!(await isFeatureEnabled('criticalThinking'))) {
+        outputDiv.innerHTML = `<div style="color: #dc2626; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-align: center;">
+            <strong>Critical Thinking Questions</strong> is currently disabled.<br/>
+            <span style="font-size: 12px; color: #991b1b;">Enable it in settings to use this feature.</span>
+        </div>`;
+        return;
+    }
+    
     outputDiv.innerHTML = 'Generating questions…';
     let pageText = null;
     try {
@@ -226,6 +288,16 @@ async function rewriter(event) {
     if (event && event.target && event.target.id === 'rewriteContentBtn') {
         outputDiv = document.getElementById('rewrite-content');
     }
+    
+    // Check if feature is enabled
+    if (!(await isFeatureEnabled('contentRewriting'))) {
+        outputDiv.innerHTML = `<div style="color: #dc2626; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-align: center;">
+            <strong>Content Rewriting</strong> is currently disabled.<br/>
+            <span style="font-size: 12px; color: #991b1b;">Enable it in settings to use this feature.</span>
+        </div>`;
+        return;
+    }
+    
     let pageText = null;
     // Read values from dropdowns if present
     const formatSelect = document.getElementById('rewrite-format-select');
@@ -383,6 +455,19 @@ window.addEventListener('DOMContentLoaded', () => {
 	if (extractDatesBtn) {
 		extractDatesBtn.addEventListener('click', extractDates);
 	}
+	
+	// Settings button handler
+	const settingsBtn = document.getElementById('settingsBtn');
+	if (settingsBtn) {
+		settingsBtn.addEventListener('click', () => {
+			chrome.windows.create({
+				url: 'popup/settings.html',
+				type: 'popup',
+				width: 620,
+				height: 600
+			});
+		});
+	}
 
 	// Run startup flow: fetch and cache page content, then update button colors
 	OnStartUp({
@@ -394,6 +479,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 async function runAction(actionType) {
+	// Check if feature is enabled based on action type
+	if (actionType === 'ANALYSE_WEBPAGE' && !(await isFeatureEnabled('aiAnalysis'))) {
+		showFeatureDisabledMessage('AI Analysis', 'analysis');
+		switchToTab('analysis');
+		return;
+	}
+	
 	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
 	let payload = await requestPageContent(tabId);
@@ -402,19 +494,19 @@ async function runAction(actionType) {
 	}
 	const res = await chrome.runtime.sendMessage({ type: actionType, payload });
 	if (res?.ok) {
-		if (res.data?.summary) {
+		if (res.data?.summary && await isFeatureEnabled('summaryGeneration')) {
 			renderSummary(res.data.summary);
 			switchToTab('summary');
 		}
-		if (res.data?.biases) {
+		if (res.data?.biases && await isFeatureEnabled('biasDetection')) {
 			renderBiases(res.data.biases);
 			switchToTab('bias');
 		}
-		if (res.data?.claims) {
+		if (res.data?.claims && await isFeatureEnabled('claimsExtraction')) {
 			renderClaims(res.data.claims);
 			switchToTab('claims');
 		}
-		if (res.data?.analysis) {
+		if (res.data?.analysis && await isFeatureEnabled('aiAnalysis')) {
 			renderAnalysis(res.data.analysis);
 			switchToTab('analysis');
 		}
@@ -571,6 +663,16 @@ async function createApiWithMonitor(apiName) {
 
 async function extractDates() {
 	const container = document.getElementById('calendar-events');
+	
+	// Check if feature is enabled
+	if (!(await isFeatureEnabled('calendarEvents'))) {
+		container.innerHTML = `<div style="color: #dc2626; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-align: center;">
+			<strong>Calendar Events Extraction</strong> is currently disabled.<br/>
+			<span style="font-size: 12px; color: #991b1b;">Enable it in settings to use this feature.</span>
+		</div>`;
+		return;
+	}
+	
 	const tabId = await getActiveTabId();
 	const currentUrl = (await chrome.tabs.get(tabId)).url;
 

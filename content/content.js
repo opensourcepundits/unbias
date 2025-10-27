@@ -1,3 +1,25 @@
+// Get highlight settings from storage
+async function getHighlightSettings() {
+    const DEFAULT_SETTINGS = {
+        highlightLoadedLanguage: true,
+        highlightAbsolutes: true,
+        highlightWeakSources: true
+    };
+    
+    try {
+        const stored = await chrome.storage.sync.get('extensionSettings');
+        const settings = stored.extensionSettings || DEFAULT_SETTINGS;
+        return {
+            highlightLoadedLanguage: settings.highlightLoadedLanguage !== false,
+            highlightAbsolutes: settings.highlightAbsolutes !== false,
+            highlightWeakSources: settings.highlightWeakSources !== false
+        };
+    } catch (error) {
+        console.error('[News Insight] Error getting highlight settings:', error);
+        return DEFAULT_SETTINGS;
+    }
+}
+
 // Utility to extract readable article content from arbitrary news pages
 function getArticleMetadata() {
 	const title = document.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content || document.title || '';
@@ -56,12 +78,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 		sendResponse({ ok: true, payload });
 		return true;
 	}
+	if (msg?.type === 'SETTINGS_CHANGED') {
+		// Reload the page to apply new settings
+		console.log('[News Insight] Settings changed. Reloading to apply new highlighting settings.');
+		location.reload();
+		return false;
+	}
 	return false;
 });
 
 // Proactive Language Highlighter
-(function initLanguageHighlighter() {
+(async function initLanguageHighlighter() {
     console.log('[News Insight] Initializing Language Highlighter');
+    
+    // Check settings to see if any highlighting is enabled
+    const settings = await getHighlightSettings();
+    if (!settings.highlightLoadedLanguage && !settings.highlightAbsolutes && !settings.highlightWeakSources) {
+        console.log('[News Insight] All highlighting features disabled. Skipping initialization.');
+        return;
+    }
+    
     // 1. Add styles for highlighting
     const style = document.createElement('style');
     style.textContent = `
@@ -195,13 +231,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
     }
 
-    function highlightPhrases(element, phrases) {
+    async function highlightPhrases(element, phrases) {
         if (!phrases || phrases.length === 0) {
             console.log('[News Insight] No phrases to highlight.');
             return;
         }
 
         console.log(`[News Insight] Attempting to highlight ${phrases.length} phrases in element:`, element);
+        
+        // Get current settings
+        const settings = await getHighlightSettings();
+        
         let innerHTML = element.innerHTML;
         let highlights = 0;
 
@@ -219,19 +259,38 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
                 // Determine the class and tooltip based on category
                 let highlightClass = 'unbias-highlight'; // Default
                 let tooltip = '';
+                let shouldHighlight = true;
+                
                 switch (category) {
                     case 'LOADED_LANGUAGE':
+                        if (!settings.highlightLoadedLanguage) {
+                            shouldHighlight = false;
+                            break;
+                        }
                         highlightClass = 'unbias-highlight-loaded';
                         tooltip = 'Loaded & Emotional Language: Words designed to provoke strong emotional responses instead of rational ones.';
                         break;
                     case 'ABSOLUTE_GENERALIZATION':
+                        if (!settings.highlightAbsolutes) {
+                            shouldHighlight = false;
+                            break;
+                        }
                         highlightClass = 'unbias-highlight-absolute';
                         tooltip = 'Absolutes & Hyperbole: Sweeping, all-or-nothing generalizations that are often unprovable.';
                         break;
                     case 'WEAK_SOURCE':
+                        if (!settings.highlightWeakSources) {
+                            shouldHighlight = false;
+                            break;
+                        }
                         highlightClass = 'unbias-highlight-weak';
                         tooltip = 'Vague & Uncertain Language: Words that hedge or obscure claims, often from anonymous sources.';
                         break;
+                }
+                
+                if (!shouldHighlight) {
+                    console.log(`[News Insight]   -> Skipping "${phrase}" (category ${category} is disabled)`);
+                    return;
                 }
 
                 // Escape special characters in the phrase to use it in a regex
