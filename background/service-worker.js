@@ -1,5 +1,36 @@
 import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter } from '../api/index.js';
 
+// Default settings
+const DEFAULT_SETTINGS = {
+	highlightLoadedLanguage: true,
+	highlightAbsolutes: true,
+	highlightWeakSources: true,
+	summaryGeneration: true,
+	biasDetection: true,
+	claimsExtraction: true,
+	aiAnalysis: true,
+	contentRewriting: true,
+	criticalThinking: true,
+	calendarEvents: true
+};
+
+// Get settings from storage
+async function getSettings() {
+	try {
+		const stored = await chrome.storage.sync.get('extensionSettings');
+		return stored.extensionSettings || DEFAULT_SETTINGS;
+	} catch (error) {
+		console.error('[News Insight] Error getting settings:', error);
+		return DEFAULT_SETTINGS;
+	}
+}
+
+// Check if a feature is enabled
+async function isFeatureEnabled(featureName) {
+	const settings = await getSettings();
+	return settings[featureName] !== false;
+}
+
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
 	  // Setting interactive: true prompts the user for sign-in/authorization if needed
@@ -180,11 +211,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 					sendResponse({ ok: false, error: 'No content to analyze' });
 					return;
 				}
-				const [summary, biases, claims] = await Promise.all([
-					summarizeArticle(content),
-					analyzeBiases(content),
-					extractAndCheckClaims(content),
-				]);
+				
+				// Check which features are enabled
+				const summaryEnabled = await isFeatureEnabled('summaryGeneration');
+				const biasEnabled = await isFeatureEnabled('biasDetection');
+				const claimsEnabled = await isFeatureEnabled('claimsExtraction');
+				
+				// Only run enabled features
+				const tasks = [];
+				if (summaryEnabled) tasks.push(summarizeArticle(content));
+				else tasks.push(Promise.resolve('Summary generation is disabled'));
+				
+				if (biasEnabled) tasks.push(analyzeBiases(content));
+				else tasks.push(Promise.resolve({ items: [] }));
+				
+				if (claimsEnabled) tasks.push(extractAndCheckClaims(content));
+				else tasks.push(Promise.resolve({ items: [] }));
+				
+				const [summary, biases, claims] = await Promise.all(tasks);
 				sendResponse({ ok: true, data: { summary, biases, claims } });
 			} catch (e) {
 				sendResponse({ ok: false, error: (e && e.message) || 'Analysis failed' });
@@ -201,6 +245,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (!content?.text) {
                     console.warn('[News Insight] HIGHLIGHT_LANGUAGE request is missing text content.');
                     sendResponse({ ok: false, error: 'No content to analyze' });
+                    return;
+                }
+                
+                // Check if any highlighting feature is enabled
+                const settings = await getSettings();
+                if (!settings.highlightLoadedLanguage && !settings.highlightAbsolutes && !settings.highlightWeakSources) {
+                    console.log('[News Insight] All highlighting features disabled.');
+                    sendResponse({ ok: true, data: { phrases: [] } });
                     return;
                 }
 
@@ -220,6 +272,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message?.type === 'ANALYSE_WEBPAGE') {
 		(async () => {
 			try {
+				// Check if AI analysis is enabled
+				if (!(await isFeatureEnabled('aiAnalysis'))) {
+					sendResponse({ ok: false, error: 'AI Analysis is disabled in settings' });
+					return;
+				}
+				
 				const content = message.payload || (await chrome.storage.session.get('latestPageContent')).latestPageContent;
 				if (!content?.text) {
 					sendResponse({ ok: false, error: 'No content to analyse' });

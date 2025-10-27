@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>News Insight - Settings</title>
+	<link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+	<header>
+		<button id="backBtn" class="back-btn" title="Back to main page">
+			<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+			</svg>
+		</button>
+		<h1>Settings</h1>
+	</header>
+	<main>
+		<div class="settings-container">
+			<!-- Language Highlighting Section -->
+			<section class="settings-section">
+				<h2 class="section-title">Language Highlighting</h2>
+				<p class="section-description">Highlight potentially biased or emotionally charged language directly on web pages</p>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="highlightLoadedLanguage" class="setting-label">Loaded & Emotional Language</label>
+						<p class="setting-description">Words designed to provoke strong emotional responses</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="highlightLoadedLanguage" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="highlightAbsolutes" class="setting-label">Absolutes & Hyperbole</label>
+						<p class="setting-description">Sweeping, all-or-nothing generalizations</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="highlightAbsolutes" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="highlightWeakSources" class="setting-label">Vague & Uncertain Language</label>
+						<p class="setting-description">Hedging or obscure claims from anonymous sources</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="highlightWeakSources" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+			</section>
+
+			<!-- Analysis Features Section -->
+			<section class="settings-section">
+				<h2 class="section-title">Analysis Features</h2>
+				<p class="section-description">AI-powered analysis tools for understanding content</p>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="summaryGeneration" class="setting-label">Summary Generation</label>
+						<p class="setting-description">Generate concise summaries of articles</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="summaryGeneration" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="biasDetection" class="setting-label">Bias Detection</label>
+						<p class="setting-description">Identify potential biases in content</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="biasDetection" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="claimsExtraction" class="setting-label">Claims Extraction</label>
+						<p class="setting-description">Extract and identify factual claims</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="claimsExtraction" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="aiAnalysis" class="setting-label">AI Analysis</label>
+						<p class="setting-description">Comprehensive webpage analysis</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="aiAnalysis" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+			</section>
+
+			<!-- Content Tools Section -->
+			<section class="settings-section">
+				<h2 class="section-title">Content Tools</h2>
+				<p class="section-description">Tools for transforming and working with content</p>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="contentRewriting" class="setting-label">Content Rewriting</label>
+						<p class="setting-description">Rewrite content with different styles</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="contentRewriting" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="criticalThinking" class="setting-label">Critical Thinking Questions</label>
+						<p class="setting-description">Generate questions to challenge assumptions</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="criticalThinking" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+				
+				<div class="setting-item">
+					<div class="setting-info">
+						<label for="calendarEvents" class="setting-label">Calendar Events Extraction</label>
+						<p class="setting-description">Extract dates and create calendar events</p>
+					</div>
+					<label class="toggle-switch">
+						<input type="checkbox" id="calendarEvents" />
+						<span class="toggle-slider"></span>
+					</label>
+				</div>
+			</section>
+
+			<!-- Reset Section -->
+			<section class="settings-section">
+				<button id="resetBtn" class="reset-btn">Reset All Settings to Default</button>
+			</section>
+		</div>
+	</main>
+	<script src="settings.js"></script>
+</body>
+</html>
+
+
+
