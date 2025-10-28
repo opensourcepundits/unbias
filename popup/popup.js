@@ -82,6 +82,15 @@ function renderAnalysis(analysis) {
 	}
 }
 
+function renderImageAnalysis(analysis) {
+	const analysisElement = document.getElementById('image-analysis-content');
+	if (typeof analysis === 'string') {
+		analysisElement.innerHTML = analysis.replace(/\n/g, '<br>');
+	} else {
+		analysisElement.textContent = JSON.stringify(analysis, null, 2);
+	}
+}
+
 // Tab functionality
 function initializeTabs() {
 	const tabButtons = document.querySelectorAll('.tab-btn');
@@ -228,13 +237,11 @@ async function rewriter(event) {
     }
     let pageText = null;
     // Read values from dropdowns if present
-    const formatSelect = document.getElementById('rewrite-format-select');
     const toneSelect = document.getElementById('rewrite-tone-select');
     const lengthSelect = document.getElementById('rewrite-length-select');
     let options = {
         sharedContext: '',
         tone: toneSelect ? toneSelect.value : 'more-casual',
-        format: formatSelect ? formatSelect.value : 'plain-text',
         length: lengthSelect ? lengthSelect.value : 'shorter',
     };
     // Get page text
@@ -305,6 +312,13 @@ async function rewriter(event) {
         console.warn('[Rewriter] Error during inference', err);
     }
 }
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	if (message?.type === 'IMAGE_ANALYSIS_RESULT') {
+		renderImageAnalysis(message.payload);
+		switchToTab('image-analysis');
+	}
+});
 
 window.addEventListener('DOMContentLoaded', () => {
 	// Initialize tab functionality
