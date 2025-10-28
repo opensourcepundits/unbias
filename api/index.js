@@ -25,7 +25,8 @@ export async function summarizeArticle(content) {
         } else {
             console.log('[News Insight][AI] No summarizer available, falling back');
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[News Insight][AI] Summarizer API error:', error);
         // fall through to prompt-based fallback
     }
@@ -61,6 +62,19 @@ ${content.text}`;
 	return claims;
 }
 
+export async function identifyLanguage(content) {
+    console.log('[News Insight][AI] Identifying language in text:', content.text);
+    // Placeholder for actual language identification logic using LanguageModel API
+    // This should interact with the LanguageModel to detect loaded language, absolutes, etc.
+    // For now, it returns dummy data.
+    return [
+        { phrase: "always", category: "ABSOLUTE_GENERALIZATION" },
+        { phrase: "never", category: "ABSOLUTE_GENERALIZATION" },
+        { phrase: "clearly shows", category: "LOADED_LANGUAGE" },
+        { phrase: "experts believe", category: "WEAK_SOURCE" }
+    ];
+}
+
 async function runLocalSummarizer(input) {
     return await runLocalPrompt(`SUMMARIZE:
 ${input}`);
@@ -75,7 +89,8 @@ async function runLocalPrompt(prompt, options = {}) {
             const response = await session.prompt(prompt);
             return response;
         }
-    } catch (_) {
+    }
+    catch (_) {
         // fall back to placeholder below
     }
     console.warn('[News Insight][AI] Prompt API unavailable, returning placeholder');
@@ -160,14 +175,16 @@ async function tryCreateSummarizer() {
         if (chrome?.ai?.summarizer?.create) {
             return await chrome.ai.summarizer.create();
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[News Insight][AI] Error in chrome.ai.summarizer:', error);
     }
     try {
         if (typeof window !== 'undefined' && window?.ai?.summarizer?.create) {
             return await window.ai.summarizer.create();
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[News Insight][AI] Error in window.ai.summarizer:', error);
     }
     console.log('[News Insight][AI] No summarizer could be created');
@@ -180,12 +197,14 @@ async function tryCreatePromptSession() {
         if (chrome?.ai?.languageModel?.create) {
             return await chrome.ai.languageModel.create();
         }
-    } catch (_) {}
+    }
+    catch (_) { }
     try {
         if (typeof window !== 'undefined' && window?.ai?.languageModel?.create) {
             return await window.ai.languageModel.create();
         }
-    } catch (_) {}
+    }
+    catch (_) { }
     return null;
 }
 
@@ -194,7 +213,8 @@ function getPreferredOutputLanguage() {
         const supported = ['en', 'es', 'ja'];
         const lang = (navigator?.language || 'en').slice(0, 2).toLowerCase();
         return supported.includes(lang) ? lang : 'en';
-    } catch (_) {
+    }
+    catch (_) {
         return 'en';
     }
 }
@@ -214,7 +234,8 @@ export async function runRewriter(text) {
         const result = await rewriter.rewrite(text);
         console.log('[News Insight][AI] Rewritten text:', result);
         return result;
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[News Insight][AI] Rewriter API error:', error);
         return text + ' [rewritten]'; // Placeholder fallback
     }
@@ -224,22 +245,22 @@ export async function runProofreader(text) {
     console.log('--- ENTERING runProofreader ---');
     try {
         console.log('--- CHECKING PROOFREADER AVAILABILITY ---');
-        const availability = await (chrome?.ai?.proofreader || window?.ai?.proofreader).availability({includeCorrectionExplanations: true});
+        const availability = await (chrome?.ai?.proofreader || window?.ai?.proofreader).availability({ includeCorrectionExplanations: true });
         console.log('--- PROOFREADER AVAILABILITY ---', availability);
         if (availability === 'unavailable') {
             console.log('--- PROOFREADER API NOT AVAILABLE, RETURNING ORIGINAL TEXT ---');
-            return [{text: text}];
+            return [{ text: text }];
         }
 
         console.log('[News Insight][AI] Running proofreader on text:', text);
-        const proofreader = await (chrome?.ai?.proofreader || window?.ai?.proofreader).create({includeCorrectionExplanations: true});
+        const proofreader = await (chrome?.ai?.proofreader || window?.ai?.proofreader).create({ includeCorrectionExplanations: true });
         console.log('--- PROOFREADER API INPUT ---', text);
         const result = await proofreader.proofread(text);
         console.log('--- PROOFREADER API OUTPUT ---', JSON.stringify(result, null, 2));
 
         if (!result || !result.corrections || result.corrections.length === 0) {
             console.log('--- NO CORRECTIONS FOUND, RETURNING ORIGINAL TEXT ---');
-            return [{text: text}];
+            return [{ text: text }];
         }
 
         console.log('--- PROCESSING CORRECTIONS ---');
@@ -268,9 +289,11 @@ export async function runProofreader(text) {
         console.log('[News Insight][AI] Corrected segments:', segments);
         console.log('--- LEAVING runProofreader ---');
         return segments;
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[News Insight][AI] Proofreader API error:', error);
         console.log('--- ERROR IN runProofreader, RETURNING ORIGINAL TEXT ---');
-        return [{text: text}]; // Return original text on error
+        return [{ text: text }]; // Return original text on error
     }
 }
+

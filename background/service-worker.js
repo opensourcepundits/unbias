@@ -1,14 +1,5 @@
-import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter } from '../api/index.js';
+import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter, identifyLanguage } from '../api/index.js';
 
-// --- START: NEW HELPER FUNCTION ---
-function getLanguageModel() {
-  // Check for the API in the standard locations, returning the first one found.
-  if (chrome?.ai?.languageModel) return chrome.ai.languageModel;
-  if (typeof window !== 'undefined' && window?.ai?.languageModel) return window.ai.languageModel;
-  if (typeof LanguageModel !== 'undefined') return LanguageModel;
-  return null; // Return null if the API is not found
-}
-// --- END: NEW HELPER FUNCTION ---
 
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
@@ -74,23 +65,24 @@ async function analyseWebpage(pageContent) {
 	try {
 		console.log('[News Insight] Analysing webpage with LanguageModel...');
 		
-		const languageModel = getLanguageModel();
-		if (!languageModel) {
-			throw new Error("Language Model API is not available.");
-		}
+		// Get LanguageModel params and create session
+		const params = await LanguageModel.params();
+		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+		const session = await LanguageModel.create({
+			temperature: 2.0,
+			topK: topK,
+		});
 		
-		// FIX: Removed parameters from create() to use model defaults and prevent the NotSupportedError.
-		const session = await languageModel.create();
-		
-		const systemPrompt = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
-		const userPrompt = `Page Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
+		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+		const prompt = `${predefinedQuestion}\n\nPage Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
 		
 		console.log('[News Insight] Processing prompt with LanguageModel API...');
-		const analysis = await session.prompt(userPrompt, { systemPrompt });
+		const analysis = await session.prompt(prompt);
 		console.log('[News Insight] AI Analysis of Page Content:', analysis);
 		
 		session.destroy();
 		
+		// Return the analysis result
 		return analysis;
 	} catch (error) {
 		console.error('[News Insight] Error analysing webpage with LanguageModel:', error);
@@ -99,73 +91,72 @@ async function analyseWebpage(pageContent) {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-
 	chrome.contextMenus.removeAll(() => {
-
 		chrome.contextMenus.create({
-
 			id: "proofread",
-
 			title: "Proofread",
-
 			contexts: ["selection"]
-
+		});
+		chrome.contextMenus.create({
+			id: "summarize",
+			title: "Summarize",
+			contexts: ["selection"]
+		});
+		chrome.contextMenus.create({
+			id: "analyzeBiases",
+			title: "Analyze Biases",
+			contexts: ["selection"]
+		});
+		chrome.contextMenus.create({
+			id: "extractClaims",
+			title: "Extract Claims",
+			contexts: ["selection"]
+		});
+		chrome.contextMenus.create({
+			id: "rewrite",
+			title: "Rewrite",
+			contexts: ["selection"]
+		});
+		chrome.contextMenus.create({
+			id: "analyseImage",
+			title: "Analyse",
+			contexts: ["image"]
+		});
 	});
-
-	chrome.contextMenus.create({
-
-		id: "summarize",
-
-		title: "Summarize",
-
-		contexts: ["selection"]
-
-	});
-
-	chrome.contextMenus.create({
-
-		id: "analyzeBiases",
-
-		title: "Analyze Biases",
-
-		contexts: ["selection"]
-
-	});
-
-	chrome.contextMenus.create({
-
-		id: "extractClaims",
-
-		title: "Extract Claims",
-
-		contexts: ["selection"]
-
-	});
-
-	
-
-	        chrome.contextMenus.create({
-
-				id: "rewrite",
-
-				title: "Rewrite",
-
-				contexts: ["selection"]
-
-			});
-
-			chrome.contextMenus.create({
-
-				id: "analyseImage",		title: "Analyse",
-
-		contexts: ["image"]
-
-	});
-
-	});
-
 	chrome.storage.session.clear();
 
+	// Log LanguageModel params when extension is loaded
+	try {
+		const params = await LanguageModel.params();
+		console.log('[News Insight] Initial LanguageModel.params():', params);
+
+		// Initializing a new session must either specify both `topK` and
+		// `temperature` or neither of them.
+		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+		const slightlyHighTemperatureSession = await LanguageModel.create({
+			temperature: 2.0,
+			topK: topK,
+		});
+
+		// Get page content from storage and ask a predefined question
+		const { latestPageContent } = await chrome.storage.session.get('latestPageContent');
+		if (latestPageContent?.text) {
+			const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+			const prompt = `${predefinedQuestion}\n\nPage Title: ${latestPageContent.title || 'Unknown'}\nURL: ${latestPageContent.url || 'Unknown'}\n\nContent:\n${latestPageContent.text}`;
+
+			console.log('[News Insight] Processing prompt with LanguageModel API...');
+			const analysis = await slightlyHighTemperatureSession.prompt(prompt);
+			console.log('[News Insight] AI Analysis of Page Content:', analysis);
+		} else {
+			console.log('[News Insight] No page content available for analysis');
+		}
+
+		slightlyHighTemperatureSession.destroy();
+
+
+	} catch (error) {
+		console.error('[News Insight] Error with LanguageModel.params() or session creation:', error);
+	}
 });chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message?.type === 'PAGE_CONTENT') {
 		const { payload } = message;
@@ -265,8 +256,8 @@ async function resizeImage(blob, maxWidth, maxHeight) {
 	try {
 		// Create image bitmap from blob with resizing
 		return await createImageBitmap(blob, {
-            resizeWidth: maxWidth,
-            resizeHeight: maxHeight,
+            resizeWidth: 512,
+            resizeHeight: 512,
             resizeQuality: 'high'
         });
 	} catch (error) {
@@ -463,16 +454,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 				const response = await fetch(imageUrl);
 				if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 				const imageBlob = await response.blob();
-				const resizedImage = await resizeImage(imageBlob, 1024, 1024);
+				const resizedImage = await resizeImage(imageBlob, 512, 512);
 				
-				const languageModel = getLanguageModel();
-				if (!languageModel) throw new Error("Language Model for images is not available.");
-
-				// FIX: Enable vision capabilities for the session
-				const session = await languageModel.create({ vision: true });
+				const params = await LanguageModel.params();
+				const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+				const session = await LanguageModel.create({
+					temperature: 0.8, // Lower temperature for more predictable output
+					topK: topK,
+                    expectedInputs: [{ type: "image" }],
+                    expectedOutputs: [{ type: "text" }]
+				});
 				
 				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
-				const analysis = await session.prompt([ { role: "user", content: [ { type: "text", value: promptText }, { type: "image", value: imageBlob } ]} ]);
+				const analysis = await session.prompt([
+                    { role: "user", content: [
+                        { type: "text", value: promptText },
+                        { type: "image", value: resizedImage }
+                    ]}
+                ]);
 				console.log("Image analysis result:", analysis);
 
 				const url = tab.url;
