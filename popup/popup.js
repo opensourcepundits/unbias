@@ -293,28 +293,28 @@ async function rewriter(event) {
         }
     }
     console.log('[Rewriter] Creating rewriter with options:', options);
-    let rewriter;
-    rewriter = await (chrome?.ai?.rewriter || (typeof window !== 'undefined' && window?.ai?.rewriter)).create(options);
+    let rewriterInstance;
+    rewriterInstance = await createApiWithMonitor('Rewriter');
     // Attach progress logging if supported
-    if (rewriter && rewriter.addEventListener) {
-        rewriter.addEventListener('downloadprogress', (e) => {
+    if (rewriterInstance && rewriterInstance.addEventListener) {
+        rewriterInstance.addEventListener('downloadprogress', (e) => {
             console.log('[Rewriter] Download progress:', e.loaded, e.total);
         });
     }
-    console.log('[Rewriter] Rewriter instance created:', rewriter);
+    console.log('[Rewriter] Rewriter instance created:', rewriterInstance);
     outputDiv.innerHTML = 'Rewriting…';
     try {
         let rewritten;
-        if (rewriter.rewrite) {
+        if (rewriterInstance.rewrite) {
             console.log('[Rewriter] Beginning inference with .rewrite()');
-            rewritten = await rewriter.rewrite(pageText);
-        } else if (rewriter.run) {
+            rewritten = await rewriterInstance.rewrite(pageText);
+        } else if (rewriterInstance.run) {
             console.log('[Rewriter] Beginning inference with .run()');
-            const res = await rewriter.run(pageText);
+            const res = await rewriterInstance.run(pageText);
             rewritten = res?.output || res;
-        } else if (typeof rewriter === 'function') {
+        } else if (typeof rewriterInstance === 'function') {
             console.log('[Rewriter] Beginning inference with direct function call');
-            rewritten = await rewriter(pageText);
+            rewritten = await rewriterInstance(pageText);
         } else {
             throw new Error('Rewriter instance does not support rewrite/run/function invocation');
         }
