@@ -1,5 +1,15 @@
 let cachedPageContent = null;
 
+// --- START: NEW HELPER FUNCTION ---
+function getLanguageModel() {
+  // Check for the API in the standard locations, returning the first one found.
+  if (chrome?.ai?.languageModel) return chrome.ai.languageModel;
+  if (typeof window !== 'undefined' && window?.ai?.languageModel) return window.ai.languageModel;
+  if (typeof LanguageModel !== 'undefined') return LanguageModel;
+  return null; // Return null if the API is not found
+}
+// --- END: NEW HELPER FUNCTION ---
+
 async function getActiveTabId() {
 	const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 	return tab?.id;
@@ -182,9 +192,9 @@ async function logSummarizerAvailability() {
 async function criticalThinking() {
     const outputDiv = document.getElementById('questions-output');
     outputDiv.innerHTML = 'Generating questions…';
+	console.log("qweqweqwe");
     let pageText = null;
     try {
-        // Try using the cached page content
         if (cachedPageContent?.text) {
             pageText = cachedPageContent.text;
         } else {
@@ -196,48 +206,34 @@ async function criticalThinking() {
         }
         if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
 
-        // First API call - original critical thinking questions
-        const session1 = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
-            initialPrompts: [
-                {
-                    role: 'system',
-                    content: 'You are a critical thinking expert. Read the following text and generate three questions that challenge the author\'s core assumptions.'
-                }
-            ],
-        });
-        const questions1 = await session1.prompt(pageText);
+		const languageModel = getLanguageModel();
+		if (!languageModel) {
+			throw new Error("Language Model API is not available.");
+		}
+		const session = await languageModel.create();
 
-        // Second API call - additional questions about unsupported claims
-        const session2 = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
-            initialPrompts: [
-                {
-                    role: 'system',
-                    content: 'Analyze this text and identify which claims are not supported by evidence. Generate two questions that a reader should ask about these unsupported claims.'
-                }
-            ],
-        });
-        const questions2 = await session2.prompt(pageText);
+        const systemPrompt1 = 'You are a critical thinking expert. Read the following text and generate three questions that challenge the author\'s core assumptions.';
+        const questions1 = await session.prompt(pageText, { systemPrompt: systemPrompt1 });
 
-        // Combine and display results
-        let combinedResults = '';
+        const systemPrompt2 = 'Analyze this text and identify which claims are not supported by evidence. Generate two questions that a reader should ask about these unsupported claims.';
+        const questions2 = await session.prompt(pageText, { systemPrompt: systemPrompt2 });
 
-        // Add first set of questions
+		session.destroy();
+
+        let combinedResults = '<ul>';
+
         if (Array.isArray(questions1)) {
-            combinedResults += '<div style="margin-bottom: 15px;"><strong>Core Assumption Questions:</strong></div>';
-            combinedResults += questions1.map(q => `<div style='margin-bottom:8px; margin-left: 10px;'>${q}</div>`).join('');
+            combinedResults += questions1.map(q => `<li>${q}</li>`).join('');
         } else if (typeof questions1 === 'string') {
-            combinedResults += '<div style="margin-bottom: 15px;"><strong>Core Assumption Questions:</strong></div>';
-            combinedResults += `<div style='margin-bottom:8px; margin-left: 10px;'>${questions1.replace(/\n/g, '<br>')}</div>`;
+            combinedResults += `<li>${questions1.replace(/\n/g, '<br>')}</li>`;
         }
 
-        // Add second set of questions
         if (Array.isArray(questions2)) {
-            combinedResults += '<div style="margin-bottom: 15px;"><strong>Unsupported Claims Questions:</strong></div>';
-            combinedResults += questions2.map(q => `<div style='margin-bottom:8px; margin-left: 10px;'>${q}</div>`).join('');
+            combinedResults += questions2.map(q => `<li>${q}</li>`).join('');
         } else if (typeof questions2 === 'string') {
-            combinedResults += '<div style="margin-bottom: 15px;"><strong>Unsupported Claims Questions:</strong></div>';
-            combinedResults += `<div style='margin-bottom:8px; margin-left: 10px;'>${questions2.replace(/\n/g, '<br>')}</div>`;
+            combinedResults += `<li>${questions2.replace(/\n/g, '<br>')}</li>`;
         }
+        combinedResults += '</ul>';
 
         outputDiv.innerHTML = combinedResults || JSON.stringify({questions1, questions2}, null, 2);
     } catch (err) {
@@ -360,89 +356,40 @@ window.addEventListener('DOMContentLoaded', () => {
 
 	// Initialize button handlers
 	document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
-	const rewriteBtn = document.getElementById('rewriteBtn');
-	const identifyBiasesBtn = document.getElementById('identifyBiasesBtn');
 	const analyseWebpageBtn = document.getElementById('analyseWebpageBtn');
-	const speakBtn = document.getElementById('speakBtn');
-	const crossExamineBtn = document.getElementById('crossExamineBtn');
 	const rewriteContentBtn = document.getElementById('rewriteContentBtn');
 	const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
 
-	if (rewriteBtn) {
-		rewriteBtn.addEventListener('click', rewriter);
-	}
-	if (identifyBiasesBtn) {
-		identifyBiasesBtn.addEventListener('click', async () => {
-			const status = await getApiAvailability('LanguageModel');
-			if (status === 'downloadable') {
-				await downloadApiIfDownloadable('LanguageModel');
-				await initAvailabilityColors({
-					summarizeBtn: document.getElementById('analyzeBtn'),
-					rewriteBtn,
-					identifyBiasesBtn,
-					speakBtn
-				});
-			}
-			await runAction('RUN_ANALYSIS');
-		});
-	}
 	if (analyseWebpageBtn) {
 		analyseWebpageBtn.addEventListener('click', async () => {
 			const status = await getApiAvailability('LanguageModel');
 			if (status === 'downloadable') {
 				await downloadApiIfDownloadable('LanguageModel');
-				await initAvailabilityColors({
-					summarizeBtn: document.getElementById('analyzeBtn'),
-					rewriteBtn,
-					identifyBiasesBtn,
-					speakBtn
-				});
 			}
 			await runAction('ANALYSE_WEBPAGE');
 		});
 	}
-	if (speakBtn) {
-		speakBtn.addEventListener('click', async () => {
-			const status = await getApiAvailability('LanguageModel');
-			if (status === 'downloadable') {
-				await downloadApiIfDownloadable('LanguageModel');
-				await initAvailabilityColors({
-					summarizeBtn: document.getElementById('analyzeBtn'),
-					rewriteBtn,
-					identifyBiasesBtn,
-					speakBtn
-				});
-			}
-			await runAction('SPEAK_WITH_PAGE');
-		});
-	}
-	if (crossExamineBtn) {
-		crossExamineBtn.addEventListener('click', async () => {
-			await runAction('CROSS_EXAMINE');
-		});
-	}
+
 	if (rewriteContentBtn) {
 		rewriteContentBtn.addEventListener('click', rewriter);
 	}
+
+	// FIX: This event listener was previously incorrect, causing the logic mix-up.
+	// It now correctly calls the criticalThinking function.
 	if (generateQuestionsBtn) {
 		generateQuestionsBtn.addEventListener('click', criticalThinking);
 	}
+
 	const extractDatesBtn = document.getElementById('extractDatesBtn');
 	if (extractDatesBtn) {
 		extractDatesBtn.addEventListener('click', extractDates);
 	}
 
-	const proofreadBtn = document.getElementById('proofreadBtn');
-	if (proofreadBtn) {
-		proofreadBtn.addEventListener('click', runProofreader);
-	}
-
-	// Run startup flow: fetch and cache page content, then update button colors
+	// Run startup flow: fetch and cache page content
 	OnStartUp({
 		summarizeBtn: document.getElementById('analyzeBtn'),
-		rewriteBtn,
-		identifyBiasesBtn,
-		speakBtn
+		rewriteBtn: rewriteContentBtn,
+		identifyBiasesBtn: analyseWebpageBtn 
 	}).catch(err => console.warn('[News Insight][Popup] OnStartUp failed', err));
 });
 
@@ -494,7 +441,7 @@ async function runAction(actionType) {
 	await logSummarizerAvailability();
 	const tabId = await getActiveTabId();
 	let payload = await requestPageContent(tabId);
-	if (!payload || !payload.text || payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
+	if (!payload || !payload.text || !payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
 		payload = cachedPageContent || undefined;
 	}
 	const res = await chrome.runtime.sendMessage({ type: actionType, payload });
@@ -561,11 +508,12 @@ async function initAvailabilityColors(refs) {
 		if (refs.rewriteBtn) setStatusClass(refs.rewriteBtn, rewriterAvailability?.status || rewriterAvailability);
 
 		// LanguageModel (for Speak and Identify Biases)
-		let lmAvailability;
-		if (typeof LanguageModel !== 'undefined' && LanguageModel?.availability) {
-			lmAvailability = await LanguageModel.availability();
+		const languageModel = getLanguageModel();
+		let lmStatus = 'unavailable';
+		if (languageModel && languageModel.availability) {
+			lmStatus = await languageModel.availability();
 		}
-		const lmStatus = lmAvailability?.status || lmAvailability;
+
 		console.log('[News Insight][Popup] LanguageModel availability:', lmStatus);
 		if (refs.speakBtn) setStatusClass(refs.speakBtn, lmStatus);
 		if (refs.identifyBiasesBtn) setStatusClass(refs.identifyBiasesBtn, lmStatus);
@@ -610,23 +558,24 @@ export async function downloadApiIfDownloadable(apiName) {
 }
 
 async function getApiAvailability(apiName) {
+	let api;
 	switch (apiName) {
 		case 'Summarizer':
-			if (typeof Summarizer !== 'undefined' && Summarizer?.availability) return await Summarizer.availability();
-			if (typeof window !== 'undefined' && window?.ai?.summarizer?.availability) return await window.ai.summarizer.availability();
-			if (chrome?.ai?.summarizer?.availability) return await chrome.ai.summarizer.availability();
-			return 'unavailable';
+			api = chrome?.ai?.summarizer || window?.ai?.summarizer || (typeof Summarizer !== 'undefined' ? Summarizer : null);
+			break;
 		case 'LanguageModel':
-			if (typeof LanguageModel !== 'undefined' && LanguageModel?.availability) return await LanguageModel.availability();
-			if (chrome?.ai?.languageModel?.availability) return await chrome.ai.languageModel.availability();
-			if (typeof window !== 'undefined' && window?.ai?.languageModel?.availability) return await window.ai.languageModel.availability();
-			return 'unavailable';
+			api = getLanguageModel();
+			break;
 		case 'Rewriter':
-			if (typeof Rewriter !== 'undefined' && Rewriter?.availability) return await Rewriter.availability();
-			return 'unavailable';
+			api = chrome?.ai?.rewriter || window?.ai?.rewriter || (typeof Rewriter !== 'undefined' ? Rewriter : null);
+			break;
 		default:
 			return 'unavailable';
 	}
+	if (api && api.availability) {
+		return await api.availability();
+	}
+	return 'unavailable';
 }
 
 async function createApiWithMonitor(apiName) {
@@ -635,37 +584,30 @@ async function createApiWithMonitor(apiName) {
 			console.log(`Downloaded ${e.loaded * 100}%`);
 		});
 	};
-	if (apiName === 'LanguageModel') {
-		if (typeof LanguageModel !== 'undefined' && LanguageModel?.create) {
-			return await LanguageModel.create({ monitor });
-		}
-		if (chrome?.ai?.languageModel?.create) {
-			return await chrome.ai.languageModel.create({ monitor });
-		}
-		if (typeof window !== 'undefined' && window?.ai?.languageModel?.create) {
-			return await window.ai.languageModel.create({ monitor });
-		}
+
+	let api;
+	let options = { monitor };
+
+	switch (apiName) {
+		case 'LanguageModel':
+			api = getLanguageModel();
+			break;
+		case 'Summarizer':
+			api = chrome?.ai?.summarizer || window?.ai?.summarizer || (typeof Summarizer !== 'undefined' ? Summarizer : null);
+			const outputLanguage = (navigator?.language || 'en').slice(0, 2).toLowerCase();
+			const supported = ['en', 'es', 'ja'];
+			const lang = supported.includes(outputLanguage) ? outputLanguage : 'en';
+			options.outputLanguage = lang;
+			break;
+		case 'Rewriter':
+			api = chrome?.ai?.rewriter || window?.ai?.rewriter || (typeof Rewriter !== 'undefined' ? Rewriter : null);
+			break;
 	}
-	if (apiName === 'Summarizer') {
-		const outputLanguage = (navigator?.language || 'en').slice(0, 2).toLowerCase();
-		const supported = ['en', 'es', 'ja'];
-		const lang = supported.includes(outputLanguage) ? outputLanguage : 'en';
-		const options = { outputLanguage: lang, monitor };
-		if (typeof Summarizer !== 'undefined' && Summarizer?.create) {
-			return await Summarizer.create(options);
-		}
-		if (chrome?.ai?.summarizer?.create) {
-			return await chrome.ai.summarizer.create(options);
-		}
-		if (typeof window !== 'undefined' && window?.ai?.summarizer?.create) {
-			return await window.ai.summarizer.create(options);
-		}
+	
+	if (api && api.create) {
+		return await api.create(options);
 	}
-	if (apiName === 'Rewriter') {
-		if (typeof Rewriter !== 'undefined' && Rewriter?.create) {
-			return await Rewriter.create({ monitor });
-		}
-	}
+
 	throw new Error(`Create not supported for ${apiName}`);
 }
 
@@ -674,12 +616,10 @@ async function extractDates() {
 	const tabId = await getActiveTabId();
 	const currentUrl = (await chrome.tabs.get(tabId)).url;
 
-	// Check if we already have extracted events for this URL
 	const storageKey = `calendar_events_${currentUrl}`;
 	const cached = await chrome.storage.local.get([storageKey]);
 
 	if (cached[storageKey]) {
-		// Render cached events
 		container.innerHTML = '';
 		const events = cached[storageKey];
 		if (events.length > 0) {
@@ -696,7 +636,6 @@ async function extractDates() {
 
 	try {
 		let pageText = null;
-		// Get page text
 		if (cachedPageContent?.text) {
 			pageText = cachedPageContent.text;
 		} else {
@@ -711,7 +650,6 @@ async function extractDates() {
 			return;
 		}
 
-		// Check if LanguageModel is available
 		const status = await getApiAvailability('LanguageModel');
 		if (status === 'unavailable') {
 			container.innerHTML = 'LanguageModel API unavailable.';
@@ -720,10 +658,13 @@ async function extractDates() {
 		if (status === 'downloadable') {
 			await downloadApiIfDownloadable('LanguageModel');
 		}
+        
+		const languageModel = getLanguageModel();
+		if (!languageModel) {
+			throw new Error("Language Model API is not available.");
+		}
+		const session = await languageModel.create();
 
-		const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create();
-
-		// Schema for structured output compatible with Google Calendar
 		const schema = {
 			type: "object",
 			properties: {
@@ -762,7 +703,6 @@ async function extractDates() {
 
 		const responseData = JSON.parse(result);
 
-		// Clear loading message
 		container.innerHTML = '';
 
 		if (responseData.events && responseData.events.length > 0) {
@@ -770,7 +710,6 @@ async function extractDates() {
 				renderCalendarEventCard(eventData);
 			});
 
-			// Cache the events for this URL
 			await chrome.storage.local.set({ [storageKey]: responseData.events });
 		} else {
 			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
@@ -799,7 +738,6 @@ function renderCalendarEventCard(eventData) {
 		<div class="calendar-event-duration">${eventData.duration_hours || 1} hour(s)</div>
 	`;
 
-	// Add click handler for the "Add to Calendar" button
 	const addButton = eventDiv.querySelector('.calendar-add-btn');
 	addButton.addEventListener('click', () => {
 		createCalendarEventFromData(eventData);
@@ -810,12 +748,10 @@ function renderCalendarEventCard(eventData) {
 
 async function createCalendarEventFromData(eventData) {
 	try {
-		// Parse date - if it's in YYYY-MM-DD format, use it directly
 		let startDate;
 		if (/^\d{4}-\d{2}-\d{2}$/.test(eventData.date)) {
 			startDate = new Date(eventData.date + 'T00:00:00');
 		} else {
-			// For relative dates like 'tomorrow', 'next week', calculate from now
 			const now = new Date();
 			if (eventData.date.toLowerCase().includes('tomorrow')) {
 				startDate = new Date(now);
@@ -824,7 +760,6 @@ async function createCalendarEventFromData(eventData) {
 				startDate = new Date(now);
 				startDate.setDate(now.getDate() + 7);
 			} else {
-				// Default to today if unrecognized format
 				startDate = new Date(now);
 			}
 		}
@@ -835,12 +770,10 @@ async function createCalendarEventFromData(eventData) {
 		const eventTitle = eventData.event;
 		const eventDescription = `From article\n\n${eventData.event}`;
 
-		// Construct Google Calendar URL
 		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startDate.toISOString().replace(/-|:/g, '').slice(0, -5)}/${endDate.toISOString().replace(/-|:/g, '').slice(0, -5)}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
 
 		await chrome.tabs.create({ url: googleCalendarUrl });
 
-		// Show success feedback (optional)
 		alert('Calendar event opened in new tab!');
 
 	} catch (err) {

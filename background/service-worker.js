@@ -1,5 +1,15 @@
 import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter } from '../api/index.js';
 
+// --- START: NEW HELPER FUNCTION ---
+function getLanguageModel() {
+  // Check for the API in the standard locations, returning the first one found.
+  if (chrome?.ai?.languageModel) return chrome.ai.languageModel;
+  if (typeof window !== 'undefined' && window?.ai?.languageModel) return window.ai.languageModel;
+  if (typeof LanguageModel !== 'undefined') return LanguageModel;
+  return null; // Return null if the API is not found
+}
+// --- END: NEW HELPER FUNCTION ---
+
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
 	  // Setting interactive: true prompts the user for sign-in/authorization if needed
@@ -64,21 +74,23 @@ async function analyseWebpage(pageContent) {
 	try {
 		console.log('[News Insight] Analysing webpage with LanguageModel...');
 		
-		// Get LanguageModel params and create session
-		const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
-			temperature: 2.0,
-		});
+		const languageModel = getLanguageModel();
+		if (!languageModel) {
+			throw new Error("Language Model API is not available.");
+		}
 		
-		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
-		const prompt = `${predefinedQuestion}\n\nPage Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
+		// FIX: Removed parameters from create() to use model defaults and prevent the NotSupportedError.
+		const session = await languageModel.create();
+		
+		const systemPrompt = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
+		const userPrompt = `Page Title: ${pageContent.title || 'Unknown'}\nURL: ${pageContent.url || 'Unknown'}\n\nContent:\n${pageContent.text}`;
 		
 		console.log('[News Insight] Processing prompt with LanguageModel API...');
-		const analysis = await session.prompt(prompt);
+		const analysis = await session.prompt(userPrompt, { systemPrompt });
 		console.log('[News Insight] AI Analysis of Page Content:', analysis);
 		
 		session.destroy();
 		
-		// Return the analysis result
 		return analysis;
 	} catch (error) {
 		console.error('[News Insight] Error analysing webpage with LanguageModel:', error);
@@ -266,7 +278,7 @@ async function resizeImage(blob, maxWidth, maxHeight) {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	console.log("Context menu clicked:", info, tab);
 	const selectedText = info.selectionText;
-	if (!selectedText) {
+	if (info.menuItemId !== "analyseImage" && !selectedText) {
 		return;
 	}
 
@@ -442,46 +454,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 		
 		case "analyseImage":
 			try {
-				// Get the image URL from the context menu
 				const imageUrl = info.srcUrl;
 				if (!imageUrl) {
 					console.error("No image URL found in context menu click.");
 					return;
 				}
 
-				// Fetch the image data
 				const response = await fetch(imageUrl);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch image: ${response.statusText}`);
-				}
+				if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 				const imageBlob = await response.blob();
-
-				// Resize the image
 				const resizedImage = await resizeImage(imageBlob, 1024, 1024);
-
-				// Create a session for multimodal input
-				const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
-					temperature: 0.8, // Lower temperature for more predictable output
-					expectedInputs: [{ type: "image" }],
-					expectedOutputs: [{ type: "text" }]
-				});
 				
+				const languageModel = getLanguageModel();
+				if (!languageModel) throw new Error("Language Model for images is not available.");
 
-				// Prepare the prompt
+				const session = await languageModel.create();
+				
 				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
-
-				// Use the session to prompt with text and image
-				const analysis = await session.prompt([
-					{ role: "user", content: [
-						{ type: "text", value: promptText },
-						{ type: "image", value: resizedImage }
-					]}
-				]);
-
-				// Log the result to the console
+				const analysis = await session.prompt([ { role: "user", content: [ { type: "text", value: promptText }, { type: "image", value: resizedImage } ]} ]);
 				console.log("Image analysis result:", analysis);
 
-				// Store the analysis result
 				const url = tab.url;
 				const key = `imageAnalyses_${url}`;
 				const data = await chrome.storage.local.get(key);
@@ -489,18 +481,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 				analyses.unshift({ analysis, imageUrl });
 				await chrome.storage.local.set({ [key]: analyses });
 
-				// Send the analysis to the popup
 				chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
-
-				// Destroy the session
 				session.destroy();
-
 			} catch (error) {
 				console.error("Error analyzing image:", error);
 			}
 			break;
 	}
 });
-
-
-
