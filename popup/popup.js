@@ -82,8 +82,23 @@ function renderAnalysis(analysis) {
 	}
 }
 
-function renderImageAnalysis(analysis) {
-	const analysisElement = document.getElementById('image-analysis-content');
+function renderImageAnalysis({ analysis, imageUrl }) {
+	const analysisElement = document.getElementById('image-analysis-text');
+	const imageContainer = document.getElementById('image-container');
+
+	// Clear previous content
+	imageContainer.innerHTML = '';
+	analysisElement.innerHTML = '';
+
+	if (imageUrl) {
+		const img = document.createElement('img');
+		img.src = imageUrl;
+		img.style.maxWidth = '50%';
+		img.style.height = 'auto';
+		img.style.marginBottom = '10px';
+		imageContainer.appendChild(img);
+	}
+
 	if (typeof analysis === 'string') {
 		analysisElement.innerHTML = analysis.replace(/\n/g, '<br>');
 	} else {

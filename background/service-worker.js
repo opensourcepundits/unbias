@@ -272,7 +272,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			console.log("Image analysis result:", analysis);
 
 			// Send the analysis to the popup
-			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: analysis });
+			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
 
 			// Destroy the session
 			session.destroy();
