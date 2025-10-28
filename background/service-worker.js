@@ -1,4 +1,4 @@
-import { summarizeArticle, analyzeBiases, extractAndCheckClaims, identifyLanguage } from '../api/index.js';
+import { summarizeArticle, analyzeBiases, extractAndCheckClaims, runProofreader, runRewriter } from '../api/index.js';
 
 function getCalendarAuthToken() {
 	return new Promise((resolve, reject) => {
@@ -89,14 +89,39 @@ async function analyseWebpage(pageContent) {
 	}
 }
 
-// Create context menu for images
-chrome.contextMenus.create({
-	id: "analyseImage",
-	title: "Analyse",
-	contexts: ["image"]
-});
-
 chrome.runtime.onInstalled.addListener(async () => {
+	chrome.contextMenus.removeAll(() => {
+		chrome.contextMenus.create({
+		id: "proofread",
+		title: "Proofread",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "summarize",
+		title: "Summarize",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "analyzeBiases",
+		title: "Analyze Biases",
+		contexts: ["selection"]
+	});
+	chrome.contextMenus.create({
+		id: "extractClaims",
+		title: "Extract Claims",
+		contexts: ["selection"]
+	});
+	
+	        chrome.contextMenus.create({
+				id: "rewrite",
+				title: "Rewrite",
+				contexts: ["selection"]
+			});
+			chrome.contextMenus.create({
+				id: "analyseImage",		title: "Analyse",
+		contexts: ["image"]
+	});
+	});
 	chrome.storage.session.clear();
 
 	// Log LanguageModel params when extension is loaded
@@ -184,7 +209,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 console.log('[News Insight] Sending response for HIGHLIGHT_LANGUAGE:', { ok: true, data: { phrases } });
                 sendResponse({ ok: true, data: { phrases } });
-            } catch (e) {
+            }
+            catch (e) {
                 console.error('[News Insight] Failed to identify language for highlighting.', e);
                 sendResponse({ ok: false, error: (e && e.message) || 'Analysis failed', details: e });
             }
@@ -207,6 +233,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		})();
 		return true; // async
 	}
+	if (message?.type === 'RUN_PROOFREADER') {
+		(async () => {
+			try {
+				const content = message.payload;
+				if (!content?.text) {
+					sendResponse({ ok: false, error: 'No content to proofread' });
+					return;
+				}
+				const result = await runProofreader(content.text);
+				sendResponse({ ok: true, data: result });
+			} catch (e) {
+				sendResponse({ ok: false, error: (e && e.message) || 'Proofreading failed' });
+			}
+		})();
+		return true;
+	}
 	return false;
 });
 
@@ -227,49 +269,208 @@ async function resizeImage(blob, maxWidth, maxHeight) {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	console.log("Context menu clicked:", info, tab);
-	if (info.menuItemId === "analyseImage") {
-		try {
-			// Get the image URL from the context menu
-			const imageUrl = info.srcUrl;
-			if (!imageUrl) {
-				console.error("No image URL found in context menu click.");
-				return;
-			}
+	const selectedText = info.selectionText;
+	if (!selectedText) {
+		return;
+	}
 
-			// Fetch the image data
-			const response = await fetch(imageUrl);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch image: ${response.statusText}`);
-			}
-			const imageBlob = await response.blob();
-
-			// Create a session for multimodal input
-			const params = await LanguageModel.params();
-			const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-			const session = await LanguageModel.create({
-				temperature: 0.8, // Lower temperature for more predictable output
-				topK: topK,
-                expectedInputs: [{ type: "image" }],
-                expectedOutputs: [{ type: "text" }]
+	switch (info.menuItemId) {
+		case "proofread":
+			const proofreadResult = await runProofreader(selectedText);
+			console.log("Proofreader result:", proofreadResult);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (segments) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const fragment = document.createDocumentFragment();
+						for (const segment of segments) {
+							const span = document.createElement('span');
+							span.textContent = segment.text;
+							if (segment.explanation) {
+								span.className = 'unbias-proofread';
+								span.dataset.tooltip = segment.explanation.replace(/\n/g, '<br>');
+							}
+							fragment.appendChild(span);
+						}
+						range.insertNode(fragment);
+					}
+				},
+				args: [proofreadResult]
 			});
-			
+			break;
+		case "rewrite":
+			const originalText = info.selectionText;
+			const rewriteResult = await runRewriter(originalText);
+			console.log("Rewriter result:", rewriteResult);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (original, rewritten) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-rewritten';
+						span.dataset.tooltip = original.replace(/\n/g, '<br>');
+						span.textContent = rewritten;
+						range.insertNode(span);
+					}
+				},
+				args: [originalText, rewriteResult]
+			});
+			break;
+		case "summarize":
+			const originalTextForSummary = info.selectionText;
+			const summarizeResult = await summarizeArticle({ text: originalTextForSummary });
+			console.log("Summarize result:", summarizeResult);
 
-			// Prepare the prompt
-			const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
+			// Get the original HTML of the selection
+			const originalHTMLForSummary = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
 
-			// Resize the image
-			const resizedImage = await resizeImage(imageBlob, 512, 512);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, summary) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-summary';
+						span.dataset.tooltip = summary;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
+			});
+			break;
+		case "analyzeBiases":
+			const originalTextForBiases = info.selectionText;
+			const analyzeBiasesResult = await analyzeBiases({ text: originalTextForBiases });
+			console.log("Analyze biases result:", analyzeBiasesResult);
+			let formattedBiases = "No biases found.";
+			if (analyzeBiasesResult && analyzeBiasesResult.items && analyzeBiasesResult.items.length > 0) {
+				formattedBiases = analyzeBiasesResult.items.map(item => `${item.label}: ${item.detail}`).join('\n');
+			}
 
-			// Use the session to prompt with text and image
-			const analysis = await session.prompt([
-                { role: "user", content: [
-                    { type: "text", value: promptText },
-                    { type: "image", value: resizedImage }
-                ]}
-            ]);
+			// Get the original HTML of the selection
+			const originalHTMLForBiases = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
 
-			// Log the result to the console
-			console.log("Image analysis result:", analysis);
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, biases) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-analysis';
+						span.dataset.tooltip = biases;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForBiases[0].result, formattedBiases.replace(/\n/g, '<br>')]
+			});
+			break;
+		case "extractClaims":
+			const originalTextForClaims = info.selectionText;
+			const extractClaimsResult = await extractAndCheckClaims({ text: originalTextForClaims });
+			console.log("Extract claims result:", extractClaimsResult);
+			let formattedClaims = "No claims found.";
+			if (extractClaimsResult && extractClaimsResult.items && extractClaimsResult.items.length > 0) {
+				formattedClaims = extractClaimsResult.items.map(item => `Claim: ${item.short_claim}\nConfidence: ${item.confidence}\nHow to verify: ${item.how_to_verify}`).join('\n\n');
+			}
+
+			// Get the original HTML of the selection
+			const originalHTMLForClaims = await chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						const div = document.createElement('div');
+						div.appendChild(range.cloneContents());
+						return div.innerHTML;
+					}
+					return '';
+				},
+			});
+
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: (originalHTML, claims) => {
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						const span = document.createElement('span');
+						span.className = 'unbias-claims';
+						span.dataset.tooltip = claims;
+						span.innerHTML = originalHTML;
+						range.insertNode(span);
+					}
+				},
+				args: [originalHTMLForClaims[0].result, formattedClaims.replace(/\n/g, '<br>')]
+			});
+			break;
+		
+		case "analyseImage":
+			try {
+				// Get the image URL from the context menu
+				const imageUrl = info.srcUrl;
+				if (!imageUrl) {
+					console.error("No image URL found in context menu click.");
+					return;
+				}
+
+				// Fetch the image data
+				const response = await fetch(imageUrl);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch image: ${response.statusText}`);
+				}
+				const imageBlob = await response.blob();
+
+				// Create a session for multimodal input
+				const params = await LanguageModel.params();
+				const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+				const session = await LanguageModel.create({
+					temperature: 0.8, // Lower temperature for more predictable output
+					topK: topK,
+					expectedInputs: [{ type: "image" }],
+					expectedOutputs: [{ type: "text" }]
+				});
+				
+
+				// Prepare the prompt
+				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
 
 			// Store the analysis result
 			const url = tab.url;
@@ -285,8 +486,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			// Destroy the session
 			session.destroy();
 
-		} catch (error) {
-			console.error("Error analyzing image:", error);
-		}
+				// Use the session to prompt with text and image
+				const analysis = await session.prompt([
+					{ role: "user", content: [
+						{ type: "text", value: promptText },
+						{ type: "image", value: resizedImage }
+					]}
+				]);
+
+				// Log the result to the console
+				console.log("Image analysis result:", analysis);
+
+				// Destroy the session
+				session.destroy();
+
+			} catch (error) {
+				console.error("Error analyzing image:", error);
+			}
+			break;
 	}
 });
+
+
+
