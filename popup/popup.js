@@ -82,6 +82,32 @@ function renderAnalysis(analysis) {
 	}
 }
 
+function renderImageAnalysis({ analysis, imageUrl }) {
+	const analysisContainer = document.getElementById('image-analysis-content');
+
+	const analysisEntry = document.createElement('div');
+	analysisEntry.style.marginBottom = '20px';
+
+	if (imageUrl) {
+		const img = document.createElement('img');
+		img.src = imageUrl;
+		img.style.maxWidth = '50%';
+		img.style.height = 'auto';
+		img.style.marginBottom = '10px';
+		analysisEntry.appendChild(img);
+	}
+
+	const analysisText = document.createElement('div');
+	if (typeof analysis === 'string') {
+		analysisText.innerHTML = analysis.replace(/\n/g, '<br>');
+	} else {
+		analysisText.textContent = JSON.stringify(analysis, null, 2);
+	}
+	analysisEntry.appendChild(analysisText);
+
+	analysisContainer.appendChild(analysisEntry);
+}
+
 // Tab functionality
 function initializeTabs() {
 	const tabButtons = document.querySelectorAll('.tab-btn');
@@ -228,13 +254,11 @@ async function rewriter(event) {
     }
     let pageText = null;
     // Read values from dropdowns if present
-    const formatSelect = document.getElementById('rewrite-format-select');
     const toneSelect = document.getElementById('rewrite-tone-select');
     const lengthSelect = document.getElementById('rewrite-length-select');
     let options = {
         sharedContext: '',
         tone: toneSelect ? toneSelect.value : 'more-casual',
-        format: formatSelect ? formatSelect.value : 'plain-text',
         length: lengthSelect ? lengthSelect.value : 'shorter',
     };
     // Get page text
@@ -306,10 +330,34 @@ async function rewriter(event) {
     }
 }
 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+	if (message?.type === 'IMAGE_ANALYSIS_RESULT') {
+		loadAndRenderImageAnalyses();
+	}
+});
+
+async function loadAndRenderImageAnalyses() {
+	const tabId = await getActiveTabId();
+	const tab = await chrome.tabs.get(tabId);
+	const url = tab.url;
+	const key = `imageAnalyses_${url}`;
+	const data = await chrome.storage.local.get(key);
+	const analyses = data[key] || [];
+
+	const analysisContainer = document.getElementById('image-analysis-content');
+	
+	for (const analysis of analyses) {
+		renderImageAnalysis(analysis);
+	}
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 	// Initialize tab functionality
 	initializeTabs();
 	
+	// Load and render stored image analyses
+	loadAndRenderImageAnalyses();
+
 	// Initialize button handlers
 	document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
 	const rewriteBtn = document.getElementById('rewriteBtn');

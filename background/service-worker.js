@@ -472,8 +472,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 				// Prepare the prompt
 				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
 
-				// Resize the image
-				const resizedImage = await resizeImage(imageBlob, 512, 512);
+			// Store the analysis result
+			const url = tab.url;
+			const key = `imageAnalyses_${url}`;
+			const data = await chrome.storage.local.get(key);
+			const analyses = data[key] || [];
+			analyses.unshift({ analysis, imageUrl });
+			await chrome.storage.local.set({ [key]: analyses });
+
+			// Send the analysis to the popup
+			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
+
+			// Destroy the session
+			session.destroy();
 
 				// Use the session to prompt with text and image
 				const analysis = await session.prompt([

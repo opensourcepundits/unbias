@@ -18,7 +18,7 @@
 			<button class="tab-btn" data-tab="rewrite">Rewrite content</button>
 			<button class="tab-btn" data-tab="actions">Critical Thinking</button>
 			<button class="tab-btn" data-tab="calendar">Calendar Events</button>
-			<button class="tab-btn" data-tab="proofreader">Proofreader</button>
+			<button class="tab-btn" data-tab="image-analysis">Image Analysis</button>
 		</nav>
 
 		<!-- Tab Content -->
@@ -39,11 +39,6 @@
 					<fieldset id="rewrite-options-fieldset" style="border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 14px; padding:10px 14px; background:#f9fafb;">
 						<legend style="font-weight:600;color:#2d3748;padding:0 6px;">Rewriting Style Options</legend>
 						<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
-							<label for="rewrite-format-select" class="rewrite-option-label" style="margin-right:4px;font-weight:500;">Format:</label>
-							<select id="rewrite-format-select" class="rewrite-option-select" style="min-width:144px;padding:4px;border-radius:4px;">
-								<option value="plain-text">Plain text (best for emails, simple notes)</option>
-								<option value="markdown">Markdown (keep headings/formatting)</option>
-							</select>
 							<label for="rewrite-tone-select" class="rewrite-option-label" style="margin-left:16px;margin-right:4px;font-weight:500;">Tone:</label>
 							<select id="rewrite-tone-select" class="rewrite-option-select" style="min-width:144px;padding:4px;border-radius:4px;">
 								<option value="more-casual">More casual (friendlier, informal)</option>
@@ -92,14 +87,12 @@
 				<div id="calendar-events" class="calendar-events-container"></div>
 			</div>
 
-			<!-- Proofreader Tab -->
-			<div id="proofreader-tab" class="tab-panel">
+			<!-- Image Analysis Tab -->
+			<div id="image-analysis-tab" class="tab-panel">
 				<div class="tab-header">
-					<h2>Proofreader</h2>
-					<button id="proofreadBtn" class="action-btn">Proofread this article</button>
+					<h2>Image Analysis</h2>
 				</div>
-				<div id="proofreader-output"></div>
-			</div>
+				<div id="image-analysis-content"></div>			</div>
 		</div>
 	</main>
 	<script src="popup.js" type="module"></script>
