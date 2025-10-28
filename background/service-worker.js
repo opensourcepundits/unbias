@@ -468,10 +468,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 				const languageModel = getLanguageModel();
 				if (!languageModel) throw new Error("Language Model for images is not available.");
 
-				const session = await languageModel.create();
+				// FIX: Enable vision capabilities for the session
+				const session = await languageModel.create({ vision: true });
 				
 				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
-				const analysis = await session.prompt([ { role: "user", content: [ { type: "text", value: promptText }, { type: "image", value: resizedImage } ]} ]);
+				const analysis = await session.prompt([ { role: "user", content: [ { type: "text", value: promptText }, { type: "image", value: imageBlob } ]} ]);
 				console.log("Image analysis result:", analysis);
 
 				const url = tab.url;
