@@ -197,7 +197,7 @@ async function criticalThinking() {
         if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
 
         // First API call - original critical thinking questions
-        const session1 = await LanguageModel.create({
+        const session1 = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
             initialPrompts: [
                 {
                     role: 'system',
@@ -208,7 +208,7 @@ async function criticalThinking() {
         const questions1 = await session1.prompt(pageText);
 
         // Second API call - additional questions about unsupported claims
-        const session2 = await LanguageModel.create({
+        const session2 = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
             initialPrompts: [
                 {
                     role: 'system',
@@ -298,7 +298,7 @@ async function rewriter(event) {
     }
     console.log('[Rewriter] Creating rewriter with options:', options);
     let rewriter;
-    rewriter = await Rewriter.create(options);
+    rewriter = await (chrome?.ai?.rewriter || (typeof window !== 'undefined' && window?.ai?.rewriter)).create(options);
     // Attach progress logging if supported
     if (rewriter && rewriter.addEventListener) {
         rewriter.addEventListener('downloadprogress', (e) => {
@@ -544,11 +544,12 @@ async function initAvailabilityColors(refs) {
 		let summarizerAvailability;
 		if (typeof Summarizer !== 'undefined' && Summarizer?.availability) {
 			summarizerAvailability = await Summarizer.availability();
-		} else if (window?.ai?.summarizer?.availability) {
+		} else if (typeof window !== 'undefined' && window?.ai?.summarizer?.availability) {
 			summarizerAvailability = await window.ai.summarizer.availability();
 		} else if (chrome?.ai?.summarizer?.availability) {
 			summarizerAvailability = await chrome.ai.summarizer.availability();
 		}
+		console.log('[News Insight][Popup] Summarizer availability:', summarizerAvailability?.status || summarizerAvailability);
 		if (refs.summarizeBtn) setStatusClass(refs.summarizeBtn, summarizerAvailability?.status || summarizerAvailability);
 
 		// Rewriter
@@ -556,6 +557,7 @@ async function initAvailabilityColors(refs) {
 		if (typeof Rewriter !== 'undefined' && Rewriter?.availability) {
 			rewriterAvailability = await Rewriter.availability();
 		}
+		console.log('[News Insight][Popup] Rewriter availability:', rewriterAvailability?.status || rewriterAvailability);
 		if (refs.rewriteBtn) setStatusClass(refs.rewriteBtn, rewriterAvailability?.status || rewriterAvailability);
 
 		// LanguageModel (for Speak and Identify Biases)
@@ -564,6 +566,7 @@ async function initAvailabilityColors(refs) {
 			lmAvailability = await LanguageModel.availability();
 		}
 		const lmStatus = lmAvailability?.status || lmAvailability;
+		console.log('[News Insight][Popup] LanguageModel availability:', lmStatus);
 		if (refs.speakBtn) setStatusClass(refs.speakBtn, lmStatus);
 		if (refs.identifyBiasesBtn) setStatusClass(refs.identifyBiasesBtn, lmStatus);
 	} catch (e) {
@@ -610,13 +613,13 @@ async function getApiAvailability(apiName) {
 	switch (apiName) {
 		case 'Summarizer':
 			if (typeof Summarizer !== 'undefined' && Summarizer?.availability) return await Summarizer.availability();
-			if (window?.ai?.summarizer?.availability) return await window.ai.summarizer.availability();
+			if (typeof window !== 'undefined' && window?.ai?.summarizer?.availability) return await window.ai.summarizer.availability();
 			if (chrome?.ai?.summarizer?.availability) return await chrome.ai.summarizer.availability();
 			return 'unavailable';
 		case 'LanguageModel':
 			if (typeof LanguageModel !== 'undefined' && LanguageModel?.availability) return await LanguageModel.availability();
 			if (chrome?.ai?.languageModel?.availability) return await chrome.ai.languageModel.availability();
-			if (window?.ai?.languageModel?.availability) return await window.ai.languageModel.availability();
+			if (typeof window !== 'undefined' && window?.ai?.languageModel?.availability) return await window.ai.languageModel.availability();
 			return 'unavailable';
 		case 'Rewriter':
 			if (typeof Rewriter !== 'undefined' && Rewriter?.availability) return await Rewriter.availability();
@@ -639,7 +642,7 @@ async function createApiWithMonitor(apiName) {
 		if (chrome?.ai?.languageModel?.create) {
 			return await chrome.ai.languageModel.create({ monitor });
 		}
-		if (window?.ai?.languageModel?.create) {
+		if (typeof window !== 'undefined' && window?.ai?.languageModel?.create) {
 			return await window.ai.languageModel.create({ monitor });
 		}
 	}
@@ -654,7 +657,7 @@ async function createApiWithMonitor(apiName) {
 		if (chrome?.ai?.summarizer?.create) {
 			return await chrome.ai.summarizer.create(options);
 		}
-		if (window?.ai?.summarizer?.create) {
+		if (typeof window !== 'undefined' && window?.ai?.summarizer?.create) {
 			return await window.ai.summarizer.create(options);
 		}
 	}
@@ -718,7 +721,7 @@ async function extractDates() {
 			await downloadApiIfDownloadable('LanguageModel');
 		}
 
-		const session = await LanguageModel.create();
+		const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create();
 
 		// Schema for structured output compatible with Google Calendar
 		const schema = {

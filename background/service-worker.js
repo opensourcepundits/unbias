@@ -65,11 +65,8 @@ async function analyseWebpage(pageContent) {
 		console.log('[News Insight] Analysing webpage with LanguageModel...');
 		
 		// Get LanguageModel params and create session
-		const params = await LanguageModel.params();
-		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-		const session = await LanguageModel.create({
+		const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
 			temperature: 2.0,
-			topK: topK,
 		});
 		
 		const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
@@ -90,75 +87,74 @@ async function analyseWebpage(pageContent) {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
+
 	chrome.contextMenus.removeAll(() => {
+
 		chrome.contextMenus.create({
-		id: "proofread",
-		title: "Proofread",
-		contexts: ["selection"]
+
+			id: "proofread",
+
+			title: "Proofread",
+
+			contexts: ["selection"]
+
 	});
+
 	chrome.contextMenus.create({
+
 		id: "summarize",
+
 		title: "Summarize",
+
 		contexts: ["selection"]
+
 	});
+
 	chrome.contextMenus.create({
+
 		id: "analyzeBiases",
+
 		title: "Analyze Biases",
+
 		contexts: ["selection"]
+
 	});
+
 	chrome.contextMenus.create({
+
 		id: "extractClaims",
+
 		title: "Extract Claims",
+
 		contexts: ["selection"]
+
 	});
+
 	
+
 	        chrome.contextMenus.create({
+
 				id: "rewrite",
+
 				title: "Rewrite",
+
 				contexts: ["selection"]
+
 			});
+
 			chrome.contextMenus.create({
+
 				id: "analyseImage",		title: "Analyse",
+
 		contexts: ["image"]
+
 	});
+
 	});
+
 	chrome.storage.session.clear();
 
-	// Log LanguageModel params when extension is loaded
-	try {
-		const params = await LanguageModel.params();
-		console.log('[News Insight] Initial LanguageModel.params():', params);
-
-		// Initializing a new session must either specify both `topK` and
-		// `temperature` or neither of them.
-		const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-		const slightlyHighTemperatureSession = await LanguageModel.create({
-			temperature: 2.0,
-			topK: topK,
-		});
-
-		// Get page content from storage and ask a predefined question
-		const { latestPageContent } = await chrome.storage.session.get('latestPageContent');
-		if (latestPageContent?.text) {
-			const predefinedQuestion = "Analyze this webpage content and provide a brief assessment of its main topics, potential bias indicators, and key factual claims that would benefit from verification. Focus on objectivity and critical analysis.";
-			const prompt = `${predefinedQuestion}\n\nPage Title: ${latestPageContent.title || 'Unknown'}\nURL: ${latestPageContent.url || 'Unknown'}\n\nContent:\n${latestPageContent.text}`;
-
-			console.log('[News Insight] Processing prompt with LanguageModel API...');
-			const analysis = await slightlyHighTemperatureSession.prompt(prompt);
-			console.log('[News Insight] AI Analysis of Page Content:', analysis);
-		} else {
-			console.log('[News Insight] No page content available for analysis');
-		}
-
-		slightlyHighTemperatureSession.destroy();
-
-
-	} catch (error) {
-		console.error('[News Insight] Error with LanguageModel.params() or session creation:', error);
-	}
-});
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+});chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message?.type === 'PAGE_CONTENT') {
 		const { payload } = message;
 		console.log('[News Insight] Received PAGE_CONTENT from tab', sender?.tab?.id, payload);
@@ -327,37 +323,39 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			const summarizeResult = await summarizeArticle({ text: originalTextForSummary });
 			console.log("Summarize result:", summarizeResult);
 
-			// Get the original HTML of the selection
-			const originalHTMLForSummary = await chrome.scripting.executeScript({
-				target: { tabId: tab.id },
-				function: () => {
-					const selection = window.getSelection();
-					if (selection.rangeCount > 0) {
-						const range = selection.getRangeAt(0);
-						const div = document.createElement('div');
-						div.appendChild(range.cloneContents());
-						return div.innerHTML;
-					}
-					return '';
-				},
-			});
+			if (summarizeResult) {
+				// Get the original HTML of the selection
+				const originalHTMLForSummary = await chrome.scripting.executeScript({
+					target: { tabId: tab.id },
+					function: () => {
+						const selection = window.getSelection();
+						if (selection.rangeCount > 0) {
+							const range = selection.getRangeAt(0);
+							const div = document.createElement('div');
+							div.appendChild(range.cloneContents());
+							return div.innerHTML;
+						}
+						return '';
+					},
+				});
 
-			chrome.scripting.executeScript({
-				target: { tabId: tab.id },
-				function: (originalHTML, summary) => {
-					const selection = window.getSelection();
-					if (selection.rangeCount > 0) {
-						const range = selection.getRangeAt(0);
-						range.deleteContents();
-						const span = document.createElement('span');
-						span.className = 'unbias-summary';
-						span.dataset.tooltip = summary;
-						span.innerHTML = originalHTML;
-						range.insertNode(span);
-					}
-				},
-				args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
-			});
+				chrome.scripting.executeScript({
+					target: { tabId: tab.id },
+					function: (originalHTML, summary) => {
+						const selection = window.getSelection();
+						if (selection.rangeCount > 0) {
+							const range = selection.getRangeAt(0);
+							range.deleteContents();
+							const span = document.createElement('span');
+							span.className = 'unbias-summary';
+							span.dataset.tooltip = summary;
+							span.innerHTML = originalHTML;
+							range.insertNode(span);
+						}
+					},
+					args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
+				});
+			}
 			break;
 		case "analyzeBiases":
 			const originalTextForBiases = info.selectionText;
@@ -458,12 +456,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 				}
 				const imageBlob = await response.blob();
 
+				// Resize the image
+				const resizedImage = await resizeImage(imageBlob, 1024, 1024);
+
 				// Create a session for multimodal input
-				const params = await LanguageModel.params();
-				const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-				const session = await LanguageModel.create({
+				const session = await (chrome?.ai?.languageModel || (typeof window !== 'undefined' && window?.ai?.languageModel)).create({
 					temperature: 0.8, // Lower temperature for more predictable output
-					topK: topK,
 					expectedInputs: [{ type: "image" }],
 					expectedOutputs: [{ type: "text" }]
 				});
@@ -471,20 +469,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 				// Prepare the prompt
 				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
-
-			// Store the analysis result
-			const url = tab.url;
-			const key = `imageAnalyses_${url}`;
-			const data = await chrome.storage.local.get(key);
-			const analyses = data[key] || [];
-			analyses.unshift({ analysis, imageUrl });
-			await chrome.storage.local.set({ [key]: analyses });
-
-			// Send the analysis to the popup
-			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
-
-			// Destroy the session
-			session.destroy();
 
 				// Use the session to prompt with text and image
 				const analysis = await session.prompt([
@@ -496,6 +480,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 				// Log the result to the console
 				console.log("Image analysis result:", analysis);
+
+				// Store the analysis result
+				const url = tab.url;
+				const key = `imageAnalyses_${url}`;
+				const data = await chrome.storage.local.get(key);
+				const analyses = data[key] || [];
+				analyses.unshift({ analysis, imageUrl });
+				await chrome.storage.local.set({ [key]: analyses });
+
+				// Send the analysis to the popup
+				chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
 
 				// Destroy the session
 				session.destroy();

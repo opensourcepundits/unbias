@@ -111,22 +111,7 @@ async function tryCreateSummarizer() {
 
     // chrome.ai.summarizer (preferred) or window.ai.summarizer
     try {
-        if (chrome?.ai?.summarizer?.availability) {
-            const availability = await chrome.ai.summarizer.availability();
-            console.log('[News Insight][AI] Summarizer availability (chrome.ai):', availability);
-            if (availability === 'unavailable') {
-                return null;
-            }
-            if (chrome?.ai?.summarizer?.create) {
-                // Check for user activation before creating the summarizer (if available)
-                if (navigator?.userActivation?.isActive) {
-                    console.log('[News Insight][AI] User activation active, using custom options');
-                    return await chrome.ai.summarizer.create(options);
-                }
-                console.log('[News Insight][AI] User activation not available/active, using default options');
-                return await chrome.ai.summarizer.create();
-            }
-        } else if (typeof Summarizer !== 'undefined' && Summarizer?.availability) {
+        if (typeof Summarizer !== 'undefined' && Summarizer?.availability) {
             const availability = await Summarizer.availability();
             console.log('[News Insight][AI] Summarizer availability (global Summarizer):', availability);
             if (availability === 'unavailable') {
@@ -141,7 +126,22 @@ async function tryCreateSummarizer() {
                 console.log('[News Insight][AI] User activation not available/active, using default options');
                 return await Summarizer.create();
             }
-        } else if (window?.ai?.summarizer?.availability) {
+        } else if (chrome?.ai?.summarizer?.availability) {
+            const availability = await chrome.ai.summarizer.availability();
+            console.log('[News Insight][AI] Summarizer availability (chrome.ai):', availability);
+            if (availability === 'unavailable') {
+                return null;
+            }
+            if (chrome?.ai?.summarizer?.create) {
+                // Check for user activation before creating the summarizer (if available)
+                if (navigator?.userActivation?.isActive) {
+                    console.log('[News Insight][AI] User activation active, using custom options');
+                    return await chrome.ai.summarizer.create(options);
+                }
+                console.log('[News Insight][AI] User activation not available/active, using default options');
+                return await chrome.ai.summarizer.create();
+            }
+        } else if (typeof window !== 'undefined' && window?.ai?.summarizer?.availability) {
             const availability = await window.ai.summarizer.availability();
             console.log('[News Insight][AI] Summarizer availability (window.ai):', availability);
             if (availability === 'unavailable') {
@@ -164,7 +164,7 @@ async function tryCreateSummarizer() {
         console.error('[News Insight][AI] Error in chrome.ai.summarizer:', error);
     }
     try {
-        if (window?.ai?.summarizer?.create) {
+        if (typeof window !== 'undefined' && window?.ai?.summarizer?.create) {
             return await window.ai.summarizer.create();
         }
     } catch (error) {
@@ -182,7 +182,7 @@ async function tryCreatePromptSession() {
         }
     } catch (_) {}
     try {
-        if (window?.ai?.languageModel?.create) {
+        if (typeof window !== 'undefined' && window?.ai?.languageModel?.create) {
             return await window.ai.languageModel.create();
         }
     } catch (_) {}
@@ -210,7 +210,7 @@ function chunkText(text, chunkSize = 2000) {
 export async function runRewriter(text) {
     try {
         console.log('[News Insight][AI] Running rewriter on text:', text);
-        const rewriter = await Rewriter.create();
+        const rewriter = await (chrome?.ai?.rewriter || window?.ai?.rewriter).create();
         const result = await rewriter.rewrite(text);
         console.log('[News Insight][AI] Rewritten text:', result);
         return result;
@@ -224,7 +224,7 @@ export async function runProofreader(text) {
     console.log('--- ENTERING runProofreader ---');
     try {
         console.log('--- CHECKING PROOFREADER AVAILABILITY ---');
-        const availability = await Proofreader.availability({includeCorrectionExplanations: true});
+        const availability = await (chrome?.ai?.proofreader || window?.ai?.proofreader).availability({includeCorrectionExplanations: true});
         console.log('--- PROOFREADER AVAILABILITY ---', availability);
         if (availability === 'unavailable') {
             console.log('--- PROOFREADER API NOT AVAILABLE, RETURNING ORIGINAL TEXT ---');
@@ -232,7 +232,7 @@ export async function runProofreader(text) {
         }
 
         console.log('[News Insight][AI] Running proofreader on text:', text);
-        const proofreader = await Proofreader.create({includeCorrectionExplanations: true});
+        const proofreader = await (chrome?.ai?.proofreader || window?.ai?.proofreader).create({includeCorrectionExplanations: true});
         console.log('--- PROOFREADER API INPUT ---', text);
         const result = await proofreader.proofread(text);
         console.log('--- PROOFREADER API OUTPUT ---', JSON.stringify(result, null, 2));
