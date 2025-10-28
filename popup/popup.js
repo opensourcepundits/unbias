@@ -83,12 +83,10 @@ function renderAnalysis(analysis) {
 }
 
 function renderImageAnalysis({ analysis, imageUrl }) {
-	const analysisElement = document.getElementById('image-analysis-text');
-	const imageContainer = document.getElementById('image-container');
+	const analysisContainer = document.getElementById('image-analysis-content');
 
-	// Clear previous content
-	imageContainer.innerHTML = '';
-	analysisElement.innerHTML = '';
+	const analysisEntry = document.createElement('div');
+	analysisEntry.style.marginBottom = '20px';
 
 	if (imageUrl) {
 		const img = document.createElement('img');
@@ -96,14 +94,18 @@ function renderImageAnalysis({ analysis, imageUrl }) {
 		img.style.maxWidth = '50%';
 		img.style.height = 'auto';
 		img.style.marginBottom = '10px';
-		imageContainer.appendChild(img);
+		analysisEntry.appendChild(img);
 	}
 
+	const analysisText = document.createElement('div');
 	if (typeof analysis === 'string') {
-		analysisElement.innerHTML = analysis.replace(/\n/g, '<br>');
+		analysisText.innerHTML = analysis.replace(/\n/g, '<br>');
 	} else {
-		analysisElement.textContent = JSON.stringify(analysis, null, 2);
+		analysisText.textContent = JSON.stringify(analysis, null, 2);
 	}
+	analysisEntry.appendChild(analysisText);
+
+	analysisContainer.appendChild(analysisEntry);
 }
 
 // Tab functionality
@@ -330,15 +332,32 @@ async function rewriter(event) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	if (message?.type === 'IMAGE_ANALYSIS_RESULT') {
-		renderImageAnalysis(message.payload);
-		switchToTab('image-analysis');
+		loadAndRenderImageAnalyses();
 	}
 });
+
+async function loadAndRenderImageAnalyses() {
+	const tabId = await getActiveTabId();
+	const tab = await chrome.tabs.get(tabId);
+	const url = tab.url;
+	const key = `imageAnalyses_${url}`;
+	const data = await chrome.storage.local.get(key);
+	const analyses = data[key] || [];
+
+	const analysisContainer = document.getElementById('image-analysis-content');
+	
+	for (const analysis of analyses) {
+		renderImageAnalysis(analysis);
+	}
+}
 
 window.addEventListener('DOMContentLoaded', () => {
 	// Initialize tab functionality
 	initializeTabs();
 	
+	// Load and render stored image analyses
+	loadAndRenderImageAnalyses();
+
 	// Initialize button handlers
 	document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
 	const rewriteBtn = document.getElementById('rewriteBtn');

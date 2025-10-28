@@ -271,6 +271,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			// Log the result to the console
 			console.log("Image analysis result:", analysis);
 
+			// Store the analysis result
+			const url = tab.url;
+			const key = `imageAnalyses_${url}`;
+			const data = await chrome.storage.local.get(key);
+			const analyses = data[key] || [];
+			analyses.unshift({ analysis, imageUrl });
+			await chrome.storage.local.set({ [key]: analyses });
+
 			// Send the analysis to the popup
 			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
 
