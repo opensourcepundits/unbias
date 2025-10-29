@@ -13,18 +13,29 @@
 	<main>
 		<!-- Tab Navigation -->
 		<nav class="tab-nav">
-			<button class="tab-btn active" data-tab="summary">Summary</button>
+			<button class="tab-btn active" data-tab="actions">Critical Thinking</button>
+			<button class="tab-btn" data-tab="summary">Summary</button>
 			<button class="tab-btn" data-tab="analysis">AI Analysis</button>
 			<button class="tab-btn" data-tab="rewrite">Rewrite content</button>
-			<button class="tab-btn" data-tab="actions">Critical Thinking</button>
-			<button class="tab-btn" data-tab="calendar">Calendar Events</button>
 			<button class="tab-btn" data-tab="image-analysis">Image Analysis</button>
+			<button class="tab-btn" data-tab="calendar">Calendar Events</button>
 		</nav>
 
 		<!-- Tab Content -->
 		<div class="tab-content">
+			<!-- Critical Thinking Tab -->
+			<div id="actions-tab" class="tab-panel active">
+				<div class="tab-header">
+					<h2>Critical Thinking</h2>
+				</div>
+				<div class="actions-grid">
+					<button id="generateQuestionsBtn" class="action-btn full-width">Generate questions</button>
+				</div>
+				<div id="questions-output" style="margin-top:14px;"></div>
+			</div>
+
 			<!-- Summary Tab -->
-			<div id="summary-tab" class="tab-panel active">
+			<div id="summary-tab" class="tab-panel">
 				<div class="tab-header">
 					<h2>Summary</h2>
 					<button id="analyzeBtn" class="action-btn">Generate Summary</button>
@@ -67,15 +78,12 @@
 				<div id="analysis"></div>
 			</div>
 
-			<!-- Critical Thinking Tab -->
-			<div id="actions-tab" class="tab-panel">
+			<!-- Image Analysis Tab -->
+			<div id="image-analysis-tab" class="tab-panel">
 				<div class="tab-header">
-					<h2>Critical Thinking</h2>
+					<h2>Image Analysis</h2>
 				</div>
-				<div class="actions-grid">
-					<button id="generateQuestionsBtn" class="action-btn full-width">Generate questions</button>
-				</div>
-				<div id="questions-output" style="margin-top:14px;"></div>
+				<div id="image-analysis-content"></div>
 			</div>
 
 			<!-- Calendar Events Tab -->
@@ -86,15 +94,7 @@
 				</div>
 				<div id="calendar-events" class="calendar-events-container"></div>
 			</div>
-
-			<!-- Image Analysis Tab -->
-			<div id="image-analysis-tab" class="tab-panel">
-				<div class="tab-header">
-					<h2>Image Analysis</h2>
-				</div>
-				<div id="image-analysis-content"></div>			</div>
 		</div>
-	</main>
 	<script src="popup.js" type="module"></script>
 </body>
 </html>

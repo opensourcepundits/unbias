@@ -148,21 +148,26 @@ function switchToTab(tabName) {
 }
 
 async function runAnalysis() {
-	await logSummarizerAvailability();
-	const tabId = await getActiveTabId();
-	let payload = await requestPageContent(tabId);
-	// Guard: if payload is empty or looks like a warmup page, try background cache
-	if (!payload || !payload.text || payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
-		console.warn('[News Insight][Popup] Empty/warmup payload. Falling back to latest stored content.');
-		payload = undefined;
-	}
-	const res = await chrome.runtime.sendMessage({ type: 'RUN_ANALYSIS', payload });
-	if (res?.ok) {
-		renderSummary(res.data.summary);
-		renderBiases(res.data.biases);
-		renderClaims(res.data.claims);
-	} else {
-		renderSummary(res?.error || 'Failed to analyze.');
+	const summaryElement = document.getElementById('summary');
+	summaryElement.innerHTML = 'Generating summary...';
+	try {
+		await logSummarizerAvailability();
+		const tabId = await getActiveTabId();
+		let payload = await requestPageContent(tabId);
+		// Guard: if payload is empty or looks like a warmup page, try background cache
+		if (!payload || !payload.text || payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
+			console.warn('[News Insight][Popup] Empty/warmup payload. Falling back to latest stored content.');
+			payload = undefined;
+		}
+		const res = await chrome.runtime.sendMessage({ type: 'RUN_ANALYSIS', payload });
+		if (res?.ok) {
+			renderSummary(res.data.summary);
+		} else {
+			renderSummary(res?.error || 'Failed to analyze.');
+		}
+	} catch (error) {
+		console.error('[News Insight][Popup] Error in runAnalysis:', error);
+		renderSummary('Failed to analyze.');
 	}
 }
 
@@ -371,8 +376,10 @@ window.addEventListener('DOMContentLoaded', () => {
 	const rewriteContentBtn = document.getElementById('rewriteContentBtn');
 	const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
 
-	if (analyseWebpageBtn) {
+		if (analyseWebpageBtn) {
 		analyseWebpageBtn.addEventListener('click', async () => {
+			const analysisElement = document.getElementById('analysis');
+			analysisElement.innerHTML = 'Analysing page...';
 			const status = await getApiAvailability('LanguageModel');
 			if (status === 'downloadable') {
 				await downloadApiIfDownloadable('LanguageModel');
@@ -449,32 +456,38 @@ function renderProofreader(data) {
 }
 
 async function runAction(actionType) {
-	await logSummarizerAvailability();
-	const tabId = await getActiveTabId();
-	let payload = await requestPageContent(tabId);
-	if (!payload || !payload.text || !payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
-		payload = cachedPageContent || undefined;
-	}
-	const res = await chrome.runtime.sendMessage({ type: actionType, payload });
-	if (res?.ok) {
-		if (res.data?.summary) {
-			renderSummary(res.data.summary);
-			switchToTab('summary');
+	const analysisLoadingMessage = document.getElementById('analysis-loading-message');
+	try {
+		await logSummarizerAvailability();
+		const tabId = await getActiveTabId();
+		let payload = await requestPageContent(tabId);
+		if (!payload || !payload.text || !payload.text.trim().length === 0 || /warmup/i.test(payload.title || '') || /warmup/.test(payload.url || '')) {
+			payload = cachedPageContent || undefined;
 		}
-		if (res.data?.biases) {
-			renderBiases(res.data.biases);
-			switchToTab('bias');
+		const res = await chrome.runtime.sendMessage({ type: actionType, payload });
+		if (res?.ok) {
+			if (res.data?.summary) {
+				renderSummary(res.data.summary);
+				switchToTab('summary');
+			}
+			if (res.data?.biases) {
+				renderBiases(res.data.biases);
+				switchToTab('bias');
+			}
+			if (res.data?.claims) {
+				renderClaims(res.data.claims);
+				switchToTab('claims');
+			}
+			if (res.data?.analysis) {
+				renderAnalysis(res.data.analysis);
+				switchToTab('analysis');
+			}
+		} else {
+			renderSummary(res?.error || 'Failed to run action.');
 		}
-		if (res.data?.claims) {
-			renderClaims(res.data.claims);
-			switchToTab('claims');
-		}
-		if (res.data?.analysis) {
-			renderAnalysis(res.data.analysis);
-			switchToTab('analysis');
-		}
-	} else {
-		renderSummary(res?.error || 'Failed to run action.');
+	} catch (error) {
+		console.error('[News Insight][Popup] Error in runAction:', error);
+		renderAnalysis('Failed to run action.');
 	}
 }
 
