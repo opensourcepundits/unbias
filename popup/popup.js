@@ -192,9 +192,10 @@ async function logSummarizerAvailability() {
 async function criticalThinking() {
     const outputDiv = document.getElementById('questions-output');
     outputDiv.innerHTML = 'Generating questions…';
-	console.log("qweqweqwe");
     let pageText = null;
+
     try {
+        // Get page text (this part remains the same)
         if (cachedPageContent?.text) {
             pageText = cachedPageContent.text;
         } else {
@@ -205,37 +206,47 @@ async function criticalThinking() {
             }
         }
         if (!pageText || !pageText.trim()) throw new Error('Page text unavailable.');
-
-		const languageModel = getLanguageModel();
+        
+        const languageModel = getLanguageModel();
 		if (!languageModel) {
 			throw new Error("Language Model API is not available.");
 		}
-		const session = await languageModel.create();
 
-        const systemPrompt1 = 'You are a critical thinking expert. Read the following text and generate three questions that challenge the author\'s core assumptions.';
-        const questions1 = await session.prompt(pageText, { systemPrompt: systemPrompt1 });
+        // --- START OF THE NEW STRATEGY ---
 
-        const systemPrompt2 = 'Analyze this text and identify which claims are not supported by evidence. Generate two questions that a reader should ask about these unsupported claims.';
-        const questions2 = await session.prompt(pageText, { systemPrompt: systemPrompt2 });
+        // 1. A simple, forceful System Prompt focusing only on the role.
+        const systemPrompt = `You are a critical thinking assistant. Your only job is to generate questions.`;
+        
+        // 2. The main prompt now explicitly WRAPS the article in a command structure.
+        // This is the most important change.
+        const userPrompt = `YOUR TASK IS TO GENERATE 3-5 CRITICAL THINKING QUESTIONS BASED ON THE ARTICLE PROVIDED BELOW. DO NOT SUMMARIZE. DO NOT LIST KEY POINTS. GENERATE ONLY THE QUESTIONS.
 
-		session.destroy();
+--- ARTICLE START ---
+${pageText}
+--- ARTICLE END ---
 
-        let combinedResults = '<ul>';
+NOW, FULFILL THE TASK. GENERATE ONLY THE QUESTIONS.`;
 
-        if (Array.isArray(questions1)) {
-            combinedResults += questions1.map(q => `<li>${q}</li>`).join('');
-        } else if (typeof questions1 === 'string') {
-            combinedResults += `<li>${questions1.replace(/\n/g, '<br>')}</li>`;
-        }
+        // 3. Create the session and call the prompt with the new structure.
+        const session = await languageModel.create();
+        const result = await session.prompt(userPrompt, { systemPrompt: systemPrompt });
+        session.destroy();
 
-        if (Array.isArray(questions2)) {
-            combinedResults += questions2.map(q => `<li>${q}</li>`).join('');
-        } else if (typeof questions2 === 'string') {
-            combinedResults += `<li>${questions2.replace(/\n/g, '<br>')}</li>`;
-        }
-        combinedResults += '</ul>';
+        // 4. Process the response (this part remains the same)
+        const questions = result.split('\n').filter(q => q.trim().length > 0);
+        let htmlOutput = '<ul>';
+        questions.forEach(question => {
+            const cleanQuestion = question.replace(/^[\s\*\-\d\.]+\s*/, '');
+            if (cleanQuestion) {
+                htmlOutput += `<li>${cleanQuestion}</li>`;
+            }
+        });
+        htmlOutput += '</ul>';
 
-        outputDiv.innerHTML = combinedResults || JSON.stringify({questions1, questions2}, null, 2);
+        outputDiv.innerHTML = htmlOutput;
+
+        // --- END OF THE NEW STRATEGY ---
+
     } catch (err) {
         outputDiv.innerHTML = `<span style='color:red;'>Failed: ${err.message}</span>`;
         console.warn('[Generate Questions]', err);
