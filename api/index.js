@@ -228,17 +228,32 @@ function chunkText(text, chunkSize = 2000) {
 }
 
 export async function runRewriter(text) {
-    try {
-        console.log('[News Insight][AI] Running rewriter on text:', text);
-        const rewriter = await (chrome?.ai?.rewriter || window?.ai?.rewriter).create();
-        const result = await rewriter.rewrite(text);
-        console.log('[News Insight][AI] Rewritten text:', result);
-        return result;
+  try {
+    // 1. Find the Rewriter API without referencing 'window' directly.
+    const RewriterAPI = chrome?.ai?.rewriter || (typeof Rewriter !== 'undefined' ? Rewriter : null);
+
+    if (!RewriterAPI) {
+      throw new Error("Rewriter API is not available.");
     }
-    catch (error) {
-        console.error('[News Insight][AI] Rewriter API error:', error);
-        return text + ' [rewritten]'; // Placeholder fallback
+
+    // 2. Check availability and create an instance.
+    const availability = await RewriterAPI.availability();
+    if (availability !== 'available') {
+       // Optionally, you could handle the 'downloadable' state.
+      throw new Error(`Rewriter is not available. Status: ${availability}`);
     }
+
+    const rewriter = await RewriterAPI.create();
+    const result = await rewriter.rewrite(text);
+    rewriter.destroy();
+    
+    return result;
+
+  } catch (e) {
+    console.error('[News Insight][AI] Rewriter API error:', e);
+    // Return the original text or an error message as a fallback.
+    return `Error during rewrite: ${e.message}`;
+  }
 }
 
 export async function runProofreader(text) {
