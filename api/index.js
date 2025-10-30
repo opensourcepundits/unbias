@@ -71,12 +71,17 @@ export async function identifyLanguage(content) {
             return [];
         }
 
-        const prompt = `Analyze the following text and identify phrases that fall into these categories: LOADED_LANGUAGE, ABSOLUTE_GENERALIZATION, WEAK_SOURCE.
-        Return a JSON array of objects, where each object has a "phrase" and "category" property.
-        For example: [{"phrase": "a shocking discovery", "category": "LOADED_LANGUAGE"}, {"phrase": "everyone knows", "category": "ABSOLUTE_GENERALIZATION"}]
+        const prompt = `You are a linguistic analyst specializing in media literacy. Your task is to identify specific, high-impact phrases in the provided text that fall into one of three categories. Be conservative in your analysis; only select phrases that are clear and strong examples.
 
-        Text to analyze:
-        ${content.text}`;
+Categories:
+1.  **LOADED_LANGUAGE**: Words or phrases with strong emotional connotations intended to influence the reader, rather than using neutral, objective language. (e.g., "brutal crackdown", "so-called expert", "a pathetic excuse").
+2.  **ABSOLUTE_GENERALIZATION**: Sweeping statements that claim something is true for all cases, often unprovable. (e.g., "nobody believes", "it's always been this way", "all politicians are the same").
+3.  **WEAK_SOURCE**: Language that attributes a claim to an unnamed, vague, or anonymous source, weakening its credibility. (e.g., "experts say", "sources claim", "it is widely reported").
+
+Analyze the following text. Return a JSON array of objects, where each object has a "phrase" and "category" property. Do not identify phrases that are shorter than 3 words unless they are a very strong example.
+
+Text to analyze:
+${content.text}`;
 
         const response = await session.prompt(prompt);
         console.log('[News Insight][AI] Language identification response:', response);
