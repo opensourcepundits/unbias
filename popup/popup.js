@@ -224,7 +224,7 @@ async function criticalThinking() {
         
         // 2. The main prompt now explicitly WRAPS the article in a command structure.
         // This is the most important change.
-        const userPrompt = `YOUR TASK IS TO GENERATE 3-5 CRITICAL THINKING QUESTIONS BASED ON THE ARTICLE PROVIDED BELOW. DO NOT SUMMARIZE. DO NOT LIST KEY POINTS. GENERATE ONLY THE QUESTIONS.
+        const userPrompt = `YOUR TASK IS to GENERATE 3-5 CRITICAL THINKING QUESTIONS BASED ON THE ARTICLE PROVIDED BELOW. DO NOT SUMMARIZE. DO NOT LIST KEY POINTS. GENERATE ONLY THE QUESTIONS.
 
 --- ARTICLE START ---
 ${pageText}
@@ -637,32 +637,15 @@ async function createApiWithMonitor(apiName) {
 
 async function extractDates() {
 	const container = document.getElementById('calendar-events');
-	const tabId = await getActiveTabId();
-	const currentUrl = (await chrome.tabs.get(tabId)).url;
-
-	const storageKey = `calendar_events_${currentUrl}`;
-	const cached = await chrome.storage.local.get([storageKey]);
-
-	if (cached[storageKey]) {
-		container.innerHTML = '';
-		const events = cached[storageKey];
-		if (events.length > 0) {
-			events.forEach(eventData => {
-				renderCalendarEventCard(eventData);
-			});
-		} else {
-			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
-		}
-		return;
-	}
-
-	container.innerHTML = 'Extracting dates…';
+	container.innerHTML = 'Extracting future events…';
 
 	try {
+		// 1. Get Page Text
 		let pageText = null;
 		if (cachedPageContent?.text) {
 			pageText = cachedPageContent.text;
 		} else {
+			const tabId = await getActiveTabId();
 			const payload = await requestPageContent(tabId);
 			if (payload?.text) {
 				pageText = payload.text;
@@ -670,74 +653,113 @@ async function extractDates() {
 		}
 
 		if (!pageText || !pageText.trim()) {
-			container.innerHTML = 'No page text available to analyze.';
+			container.innerHTML = '<div class="no-dates-message">No page text available to analyze.</div>';
 			return;
 		}
-
-		const status = await getApiAvailability('LanguageModel');
-		if (status === 'unavailable') {
-			container.innerHTML = 'LanguageModel API unavailable.';
-			return;
-		}
-		if (status === 'downloadable') {
-			await downloadApiIfDownloadable('LanguageModel');
-		}
-        
+		
 		const languageModel = getLanguageModel();
 		if (!languageModel) {
 			throw new Error("Language Model API is not available.");
 		}
 		const session = await languageModel.create();
 
-		const schema = {
+		// --- TURN 1: BROAD EXTRACTION ---
+		console.log('[News Insight][Calendar] Turn 1: Extracting potential date snippets.');
+		const extractionSchema = {
 			type: "object",
 			properties: {
-				events: {
+				potential_events: {
 					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							date: {
-								type: "string",
-								description: "The date in YYYY-MM-DD format (e.g., '2024-10-16') or a relative date like 'tomorrow', 'next week'"
-							},
-							event: {
-								type: "string",
-								description: "Brief description of the event associated with this date"
-							},
-							duration_hours: {
-								type: "number",
-								description: "Estimated duration in hours (default 1)"
-							}
-						},
-						required: ["date", "event"]
+					items: { 
+						type: "string",
+						description: "A short snippet of text (1-2 sentences) that mentions a date, deadline, or scheduled event."
 					}
 				}
 			},
-			required: ["events"]
 		};
 
-		const result = await session.prompt(
+		const extractionResult = await session.prompt(
 			pageText,
 			{
-				systemPrompt: "Extract all dates and the event associated with the date from this text. If no dates are found, return an empty events array.",
-				responseConstraint: schema,
+				systemPrompt: `Extract every phrase from the following text that appears to describe an event, a date, a deadline, or a scheduled occurrence. Be broad and extract any potential candidate.`,
+				responseConstraint: extractionSchema,
 			}
 		);
+		
+		const { potential_events } = JSON.parse(extractionResult);
+		console.log(`[News Insight][Calendar] Turn 1: Found ${potential_events.length} potential snippets.`);
 
-		const responseData = JSON.parse(result);
+		if (!potential_events || potential_events.length === 0) {
+			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
+			return;
+		}
 
+		// --- TURN 2: FILTERING AND VALIDATION ---
+		console.log('[News Insight][Calendar] Turn 2: Filtering snippets for future, actionable events.');
+		container.innerHTML = `Analyzing ${potential_events.length} potential dates...`;
+		
+		const today = new Date().toISOString().split('T')[0];
+		const validationSchema = {
+			type: "object",
+			properties: {
+				is_event: { type: "boolean" },
+				date: { type: "string" },
+				event_title: {
+                    type: "string",
+                    description: "A concise, descriptive title for the calendar event. (e.g., 'Annual Tech Conference')"
+                },
+                event_description: {
+                    type: "string",
+                    description: "A helpful description of the event, including context from the source snippet."
+                },
+				duration_hours: { type: "number" }
+			}
+		};
+
+		const analysisPromises = potential_events.map(snippet => {
+			return session.prompt(
+				`Today's date is ${today}. Analyze the following text snippet. 
+				1. Does it describe a specific, actionable event a user would add to a calendar?
+				2. Does this event occur on or after today's date?
+				
+				If BOTH are true, set "is_event" to true. Then, extract the event details. Create a clear 'event_title' and a helpful 'event_description' using the context from the snippet.
+				Otherwise, if it's a past event, historical fact, or not a specific event, set "is_event" to false.
+
+				Snippet: "${snippet}"`,
+				{ responseConstraint: validationSchema }
+			).then(res => JSON.parse(res)).catch(err => {
+				console.warn("Error parsing validation response for snippet:", snippet, err);
+				return { is_event: false }; // Treat parsing errors as non-events
+			});
+		});
+
+		const analysisResults = await Promise.all(analysisPromises);
+		session.destroy();
+		
+		const validEvents = analysisResults.filter(res => res.is_event);
+		console.log(`[News Insight][Calendar] Turn 2: Found ${validEvents.length} valid future events.`);
+		
+        // --- DE-DUPLICATION STEP ---
+        const uniqueEvents = [];
+        const seenKeys = new Set();
+        validEvents.forEach(event => {
+            // Create a unique key based on the date and title to identify duplicates
+            const key = `${event.date}|${event.event_title}`;
+            if (!seenKeys.has(key)) {
+                uniqueEvents.push(event);
+                seenKeys.add(key);
+            }
+        });
+        console.log(`[News Insight][Calendar] De-duplication: Reduced to ${uniqueEvents.length} unique events.`);
+
+		// --- 3. RENDER RESULTS ---
 		container.innerHTML = '';
-
-		if (responseData.events && responseData.events.length > 0) {
-			responseData.events.forEach(eventData => {
+		if (uniqueEvents.length > 0) {
+			uniqueEvents.forEach(eventData => {
 				renderCalendarEventCard(eventData);
 			});
-
-			await chrome.storage.local.set({ [storageKey]: responseData.events });
 		} else {
-			container.innerHTML = '<div class="no-dates-message">No dates detected in the page content.</div>';
-			await chrome.storage.local.set({ [storageKey]: [] });
+			container.innerHTML = '<div class="no-dates-message">No future events found on this page.</div>';
 		}
 
 	} catch (err) {
@@ -745,6 +767,7 @@ async function extractDates() {
 		console.warn('[Extract Dates]', err);
 	}
 }
+
 
 function renderCalendarEventCard(eventData) {
 	const container = document.getElementById('calendar-events');
@@ -758,7 +781,8 @@ function renderCalendarEventCard(eventData) {
 			<div class="calendar-event-date">${eventData.date}</div>
 			<button class="calendar-add-btn action-btn">Add to Calendar</button>
 		</div>
-		<div class="calendar-event-description">${eventData.event}</div>
+		<div class="calendar-event-title">${eventData.event_title}</div>
+		<div class="calendar-event-description">${eventData.event_description || ''}</div>
 		<div class="calendar-event-duration">${eventData.duration_hours || 1} hour(s)</div>
 	`;
 
@@ -774,7 +798,7 @@ async function createCalendarEventFromData(eventData) {
 	try {
 		let startDate;
 		if (/^\d{4}-\d{2}-\d{2}$/.test(eventData.date)) {
-			startDate = new Date(eventData.date + 'T00:00:00');
+			startDate = new Date(eventData.date + 'T09:00:00'); // Default to 9 AM for specific dates
 		} else {
 			const now = new Date();
 			if (eventData.date.toLowerCase().includes('tomorrow')) {
@@ -786,19 +810,18 @@ async function createCalendarEventFromData(eventData) {
 			} else {
 				startDate = new Date(now);
 			}
+            startDate.setHours(9, 0, 0, 0); // Default to 9 AM
 		}
 
 		const endDate = new Date(startDate);
 		endDate.setHours(startDate.getHours() + (eventData.duration_hours || 1));
 
-		const eventTitle = eventData.event;
-		const eventDescription = `From article\n\n${eventData.event}`;
+		const eventTitle = eventData.event_title;
+		const eventDescription = eventData.event_description || `From article: ${eventData.event_title}`;
 
-		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startDate.toISOString().replace(/-|:/g, '').slice(0, -5)}/${endDate.toISOString().replace(/-|:/g, '').slice(0, -5)}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
+		const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startDate.toISOString().replace(/-|:|(\.\d{3})/g, '')}/${endDate.toISOString().replace(/-|:|(\.\d{3})/g, '')}&details=${encodeURIComponent(eventDescription)}&sf=true&output=xml`;
 
 		await chrome.tabs.create({ url: googleCalendarUrl });
-
-		alert('Calendar event opened in new tab!');
 
 	} catch (err) {
 		console.warn('[Create Calendar Event from Data]', err);
