@@ -1,3 +1,4 @@
+
 // Utility to extract readable article content from arbitrary news pages
 function getArticleMetadata() {
 	const title = document.querySelector('meta[property="og:title"], meta[name="twitter:title"]')?.content || document.title || '';
@@ -119,7 +120,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             width: 250px; /* Key fix: set a consistent width */
             font-size: 14px;
             line-height: 1.4;
-            white-space: normal;
+            white-space: pre-wrap; /* Key fix: respect newlines in the tooltip content */
             word-wrap: break-word;
 
             /* State & Animation */

@@ -430,6 +430,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 					},
 				});
 
+                // Clean the summary for the tooltip
+                const cleanedSummary = summarizeResult
+                    .replace(/<br>/g, '\n')        // Replace <br> with newlines
+                    .replace(/^\s*\*\s*/gm, '• ') // Replace markdown bullets with real bullets
+                    .replace(/\*(.*?)\*/g, '$1');    // Remove emphasis asterisks
+
 				chrome.scripting.executeScript({
 					target: { tabId: tab.id },
 					function: (originalHTML, summary) => {
@@ -444,7 +450,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 							range.insertNode(span);
 						}
 					},
-					args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
+					args: [originalHTMLForSummary[0].result, cleanedSummary]
 				});
 			}
 			break;

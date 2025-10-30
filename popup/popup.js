@@ -25,18 +25,36 @@ async function requestPageContent(tabId) {
 	}
 }
 
-function renderSummary(summary) {
-	const summaryElement = document.getElementById('summary');
-	if (typeof summary === 'string') {
-		// Convert markdown bullet points to HTML for better display
-		const htmlContent = summary
-			.replace(/\*\s*(.+)/g, '• $1') // Convert * to bullet points
-			.replace(/\n/g, '<br>') // Convert newlines to line breaks
-			.replace(/•\s*(.+)/g, '<div style="margin-left: 20px; margin-bottom: 5px;">• $1</div>'); // Style bullet points
-		summaryElement.innerHTML = htmlContent;
-	} else {
-		summaryElement.textContent = JSON.stringify(summary, null, 2);
-	}
+function renderSummary(summaryText) {
+    const summaryElement = document.getElementById('summary');
+    summaryElement.innerHTML = ''; // Clear previous content
+
+    if (typeof summaryText !== 'string') {
+        summaryElement.textContent = JSON.stringify(summaryText, null, 2);
+        return;
+    }
+
+    const ul = document.createElement('ul');
+    const lines = summaryText.split(/<br>|\n/);
+
+    lines.forEach(line => {
+        let formattedLine = line.trim();
+        if (!formattedLine) return;
+
+        // Check for bullet point markers (* or •)
+        if (formattedLine.startsWith('* ') || formattedLine.startsWith('• ')) {
+            formattedLine = formattedLine.substring(2);
+        }
+
+        // Convert emphasis (*word*) to bold
+        formattedLine = formattedLine.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+
+        const li = document.createElement('li');
+        li.innerHTML = formattedLine; // Use innerHTML to render the <strong> tag
+        ul.appendChild(li);
+    });
+
+    summaryElement.appendChild(ul);
 }
 
 function renderBiases(biases) {
