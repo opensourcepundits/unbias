@@ -64,15 +64,34 @@ ${content.text}`;
 
 export async function identifyLanguage(content) {
     console.log('[News Insight][AI] Identifying language in text:', content.text);
-    // Placeholder for actual language identification logic using LanguageModel API
-    // This should interact with the LanguageModel to detect loaded language, absolutes, etc.
-    // For now, it returns dummy data.
-    return [
-        { phrase: "always", category: "ABSOLUTE_GENERALIZATION" },
-        { phrase: "never", category: "ABSOLUTE_GENERALIZATION" },
-        { phrase: "clearly shows", category: "LOADED_LANGUAGE" },
-        { phrase: "experts believe", category: "WEAK_SOURCE" }
-    ];
+    try {
+        const session = await tryCreatePromptSession();
+        if (!session) {
+            console.warn('[News Insight][AI] Prompt API unavailable, skipping language identification.');
+            return [];
+        }
+
+        const prompt = `Analyze the following text and identify phrases that fall into these categories: LOADED_LANGUAGE, ABSOLUTE_GENERALIZATION, WEAK_SOURCE.
+        Return a JSON array of objects, where each object has a "phrase" and "category" property.
+        For example: [{"phrase": "a shocking discovery", "category": "LOADED_LANGUAGE"}, {"phrase": "everyone knows", "category": "ABSOLUTE_GENERALIZATION"}]
+
+        Text to analyze:
+        ${content.text}`;
+
+        const response = await session.prompt(prompt);
+        console.log('[News Insight][AI] Language identification response:', response);
+
+        // Basic parsing of the response. This might need to be more robust depending on the model's output format.
+        const result = JSON.parse(response);
+        if (Array.isArray(result)) {
+            return result;
+        } else {
+            return [];
+        }
+    } catch (error) {
+        console.error('[News Insight][AI] Error identifying language:', error);
+        return [];
+    }
 }
 
 async function runLocalSummarizer(input) {
@@ -113,7 +132,7 @@ async function tryCreateSummarizer() {
         sharedContext: 'This is a news article',
         type: 'key-points',
         format: 'markdown',
-        length: 'medium',
+        length: 'long',
         outputLanguage,
         monitor(m) {
             m.addEventListener('downloadprogress', (e) => {

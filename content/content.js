@@ -150,85 +150,47 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             opacity: 1;
         }
 
-    .unbias-rewritten {
-            background-color: rgba(173, 216, 230, 0.7); /* Light Blue for Rewritten Text */
+    .unbias-rewritten, .unbias-proofread, .unbias-summary {
             position: relative;
             cursor: help;
         }
-        .unbias-rewritten::after {
+        .unbias-rewritten::after, .unbias-proofread::after, .unbias-summary::after {
             content: attr(data-tooltip);
             position: absolute;
-            bottom: 100%;
-            left: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            bottom: 125%; /* Position the tooltip above the text */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
             white-space: normal;
             word-wrap: break-word;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
-            z-index: 1000;
+            z-index: 1001; /* Ensure tooltip is on top */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            width: 250px; /* Set a max-width for readability */
         }
-        .unbias-rewritten:hover::after {
+        .unbias-rewritten:hover::after, .unbias-proofread:hover::after, .unbias-summary:hover::after {
             opacity: 1;
         }
 
     .unbias-proofread {
-            text-decoration: underline wavy red;
-            position: relative;
-            cursor: help;
+            background-color: rgba(255, 0, 0, 0.1);
+            border-bottom: 2px dotted red;
         }
-        .unbias-proofread::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: normal;
-            word-wrap: break-word;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }
-        .unbias-proofread:hover::after {
-            opacity: 1;
+
+    .unbias-rewritten {
+            background-color: rgba(173, 216, 230, 0.3);
+            border-bottom: 2px dotted #007bff;
         }
 
     .unbias-summary {
-            background-color: rgba(144, 238, 144, 0.7); /* Light Green for Summary */
-            position: relative;
-            cursor: help;
-        }
-        .unbias-summary::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: normal;
-            word-wrap: break-word;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }
-        .unbias-summary:hover::after {
-            opacity: 1;
+            background-color: rgba(144, 238, 144, 0.3);
+            border-bottom: 2px dotted #28a745;
         }
 
     .unbias-analysis {

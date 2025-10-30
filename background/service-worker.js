@@ -92,6 +92,7 @@ async function analyseWebpage(pageContent) {
 
 chrome.runtime.onInstalled.addListener(async () => {
 	chrome.contextMenus.removeAll(() => {
+		// Text selection context menus
 		chrome.contextMenus.create({
 			id: "proofread",
 			title: "Proofread",
@@ -102,15 +103,48 @@ chrome.runtime.onInstalled.addListener(async () => {
 			title: "Summarize",
 			contexts: ["selection"]
 		});
-		
 		chrome.contextMenus.create({
 			id: "rewrite",
 			title: "Rewrite",
 			contexts: ["selection"]
 		});
+
+		// Parent context menu for image analysis
 		chrome.contextMenus.create({
-			id: "analyseImage",
-			title: "Analyse",
+			id: "analyseImageParent",
+			title: "Analyse Image",
+			contexts: ["image"]
+		});
+
+		// Child context menu items for different image analysis prompts
+		chrome.contextMenus.create({
+			id: "analyseImage_bias",
+			parentId: "analyseImageParent",
+			title: "Analyze for Persuasive Bias",
+			contexts: ["image"]
+		});
+		chrome.contextMenus.create({
+			id: "analyseImage_context",
+			parentId: "analyseImageParent",
+			title: "Analyze for Missing Context",
+			contexts: ["image"]
+		});
+		chrome.contextMenus.create({
+			id: "analyseImage_symbolism",
+			parentId: "analyseImageParent",
+			title: "Analyze for Symbolism",
+			contexts: ["image"]
+		});
+		chrome.contextMenus.create({
+			id: "analyseImage_data",
+			parentId: "analyseImageParent",
+			title: "Analyze Chart/Graph for Misleading Data",
+			contexts: ["image"]
+		});
+		chrome.contextMenus.create({
+			id: "analyseImage_emotion",
+			parentId: "analyseImageParent",
+			title: "Analyze for Emotions & Non-Verbal Cues",
 			contexts: ["image"]
 		});
 	});
@@ -259,8 +293,71 @@ async function resizeImage(blob, maxWidth, maxHeight) {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 	console.log("Context menu clicked:", info, tab);
+
+	// --- IMAGE ANALYSIS LOGIC ---
+	if (info.menuItemId.startsWith("analyseImage_")) {
+		// A map of menu item IDs to their corresponding prompts
+		const imageAnalysisPrompts = {
+			"analyseImage_bias": "You are a media literacy expert. Analyze this image for persuasive bias. Consider the camera angle (e.g., low-angle to make subject powerful, high-angle to make them weak), lighting, and focus. What emotional response or opinion is the photographer likely trying to evoke?",
+			"analyseImage_context": "You are a photojournalist. Analyze this image. Based on what is visible, what critical context might be missing? What could be happening just outside the frame that would completely change the story or the viewer's interpretation?",
+			"analyseImage_symbolism": "Analyze this image (especially if it is a political cartoon or artwork) for symbolism. What do the different elements likely represent, and what is the overall message or argument?",
+			"analyseImage_data": "You are a data analyst. Analyze this chart or graph. First, objectively state what the data shows. Second, identify any potential ways this visualization could be misleading (e.g., manipulated Y-axis, cherry-picked data, lack of scale, or misleading correlations)",
+			"analyseImage_emotion": "You are an expert in emotional intelligence and non-verbal communication. Analyze this image and identify the emotions being conveyed.\nFirst, describe the overall atmosphere or mood of the scene (e.g., tense, joyful, somber, chaotic).\nSecond, identify the primary emotions visible in the key subjects (people). For each emotion, provide the specific visual evidence from their facial expressions or body language that supports your analysis.\nMake your answer clear and concise."
+		};
+
+		try {
+			const promptText = imageAnalysisPrompts[info.menuItemId];
+			if (!promptText) {
+				console.error("No prompt found for menu item:", info.menuItemId);
+				return;
+			}
+
+			const imageUrl = info.srcUrl;
+			if (!imageUrl) {
+				console.error("No image URL found in context menu click.");
+				return;
+			}
+
+			const response = await fetch(imageUrl);
+			if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+			const imageBlob = await response.blob();
+			const resizedImage = await resizeImage(imageBlob, 512, 512);
+
+			const params = await LanguageModel.params();
+			const topK = Math.max(1, Math.min(params.defaultTopK, 100));
+			const session = await LanguageModel.create({
+				temperature: 0.8,
+				topK: topK,
+				expectedInputs: [{ type: "image" }],
+				expectedOutputs: [{ type: "text" }]
+			});
+
+			const analysis = await session.prompt([
+				{ role: "user", content: [
+					{ type: "text", value: promptText },
+					{ type: "image", value: resizedImage }
+				]}
+			]);
+			console.log("Image analysis result:", analysis);
+
+			const url = tab.url;
+			const key = `imageAnalyses_${url}`;
+			const data = await chrome.storage.local.get(key);
+			const analyses = data[key] || [];
+			analyses.unshift({ analysis, imageUrl });
+			await chrome.storage.local.set({ [key]: analyses });
+
+			chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
+			session.destroy();
+		} catch (error) {
+			console.error("Error analyzing image:", error);
+		}
+		return; // Stop execution here for image analysis
+	}
+
+	// --- TEXT SELECTION LOGIC ---
 	const selectedText = info.selectionText;
-	if (info.menuItemId !== "analyseImage" && !selectedText) {
+	if (!selectedText) {
 		return;
 	}
 
@@ -349,52 +446,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 					},
 					args: [originalHTMLForSummary[0].result, summarizeResult.replace(/\n/g, '<br>')]
 				});
-			}
-			break;
-		
-		
-		case "analyseImage":
-			try {
-				const imageUrl = info.srcUrl;
-				if (!imageUrl) {
-					console.error("No image URL found in context menu click.");
-					return;
-				}
-
-				const response = await fetch(imageUrl);
-				if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-				const imageBlob = await response.blob();
-				const resizedImage = await resizeImage(imageBlob, 512, 512);
-				
-				const params = await LanguageModel.params();
-				const topK = Math.max(1, Math.min(params.defaultTopK, 100));
-				const session = await LanguageModel.create({
-					temperature: 0.8, // Lower temperature for more predictable output
-					topK: topK,
-                    expectedInputs: [{ type: "image" }],
-                    expectedOutputs: [{ type: "text" }]
-				});
-				
-				const promptText = "Analyze the image and provide a one-paragraph description. Then, list the key elements in the image.";
-				const analysis = await session.prompt([
-                    { role: "user", content: [
-                        { type: "text", value: promptText },
-                        { type: "image", value: resizedImage }
-                    ]}
-                ]);
-				console.log("Image analysis result:", analysis);
-
-				const url = tab.url;
-				const key = `imageAnalyses_${url}`;
-				const data = await chrome.storage.local.get(key);
-				const analyses = data[key] || [];
-				analyses.unshift({ analysis, imageUrl });
-				await chrome.storage.local.set({ [key]: analyses });
-
-				chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { analysis, imageUrl } });
-				session.destroy();
-			} catch (error) {
-				console.error("Error analyzing image:", error);
 			}
 			break;
 	}
