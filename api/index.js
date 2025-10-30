@@ -81,8 +81,24 @@ export async function identifyLanguage(content) {
         const response = await session.prompt(prompt);
         console.log('[News Insight][AI] Language identification response:', response);
 
-        // Basic parsing of the response. This might need to be more robust depending on the model's output format.
-        const result = JSON.parse(response);
+        // Clean the response to extract only the JSON part.
+        // The model sometimes wraps the JSON in markdown ```json ... ```
+        const firstBracket = response.indexOf('[');
+        const lastBracket = response.lastIndexOf(']');
+        let cleanedResponse = response;
+
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+            cleanedResponse = response.substring(firstBracket, lastBracket + 1);
+        } else {
+            // Fallback for object-based responses, though the prompt expects an array.
+            const firstBrace = response.indexOf('{');
+            const lastBrace = response.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+                cleanedResponse = response.substring(firstBrace, lastBrace + 1);
+            }
+        }
+
+        const result = JSON.parse(cleanedResponse);
         if (Array.isArray(result)) {
             return result;
         } else {
@@ -211,19 +227,18 @@ async function tryCreateSummarizer() {
 }
 
 async function tryCreatePromptSession() {
-    // chrome.ai.languageModel / window.ai.languageModel (naming may vary by channel)
     try {
-        if (chrome?.ai?.languageModel?.create) {
-            return await chrome.ai.languageModel.create();
+        // Standardized way to get the Language Model API, checking all common locations.
+        const LanguageModelAPI = chrome?.ai?.languageModel ||
+                              (typeof window !== 'undefined' && window?.ai?.languageModel) ||
+                              (typeof LanguageModel !== 'undefined' ? LanguageModel : null);
+
+        if (LanguageModelAPI && typeof LanguageModelAPI.create === 'function') {
+            return await LanguageModelAPI.create();
         }
+    } catch (error) {
+        console.error('[News Insight][AI] Error creating prompt session:', error);
     }
-    catch (_) { }
-    try {
-        if (typeof window !== 'undefined' && window?.ai?.languageModel?.create) {
-            return await window.ai.languageModel.create();
-        }
-    }
-    catch (_) { }
     return null;
 }
 
@@ -330,4 +345,3 @@ export async function runProofreader(text) {
         return [{ text: text }]; // Return original text on error
     }
 }
-
