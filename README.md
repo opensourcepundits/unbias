@@ -1,9 +1,5 @@
 # News Insight (Chrome Extension)
 
-
-## To add
-Of course! Based on a complete review of the extension's code, here is a comprehensive list of all its features:
-
 Core On-Page and Contextual Features
 
 These are features that interact directly with the content of the webpage you are viewing.
