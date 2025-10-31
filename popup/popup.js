@@ -35,6 +35,7 @@ function renderSummary(summaryText) {
     }
 
     const ul = document.createElement('ul');
+    ul.className = 'summary-list'; // Add a class for styling
     const lines = summaryText.split(/<br>|\n/);
 
     lines.forEach(line => {
@@ -56,6 +57,7 @@ function renderSummary(summaryText) {
 
     summaryElement.appendChild(ul);
 }
+
 
 function renderBiases(biases) {
 	const ul = document.getElementById('biases');
@@ -134,6 +136,13 @@ function renderImageAnalysis({ analysis, imageUrl }) {
 	analysisEntry.appendChild(analysisText);
 
 	analysisContainer.appendChild(analysisEntry);
+}
+
+function renderImageAnalysisLoadingState() {
+    const analysisContainer = document.getElementById('image-analysis-content');
+    if (analysisContainer) {
+        analysisContainer.innerHTML = `<div class="loading-state">Analyzing image...</div>`;
+    }
 }
 
 // Tab functionality
@@ -361,7 +370,11 @@ async function rewriter(event) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	if (message?.type === 'IMAGE_ANALYSIS_RESULT') {
+	if (message?.type === 'IMAGE_ANALYSIS_START') {
+        switchToTab('image-analysis');
+        renderImageAnalysisLoadingState();
+    }
+    if (message?.type === 'IMAGE_ANALYSIS_RESULT') {
 		loadAndRenderImageAnalyses();
 	}
 });
@@ -375,6 +388,7 @@ async function loadAndRenderImageAnalyses() {
 	const analyses = data[key] || [];
 
 	const analysisContainer = document.getElementById('image-analysis-content');
+    analysisContainer.innerHTML = ''; // Clear existing content before rendering
 	
 	for (const analysis of analyses) {
 		renderImageAnalysis(analysis);

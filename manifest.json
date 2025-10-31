@@ -3,7 +3,13 @@
   "name": "News Insight: Summary, Bias & Claims",
   "version": "0.1.0",
   "description": "Summarizes news pages, flags potential biases, and highlights claims for cross-checking using Chrome built-in AI.",
-
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "64": "assets/icon64.png",
+    "128": "assets/icon128.png"
+  },
   "action": {
     "default_popup": "popup/index.html",
     "default_title": "News Insight"

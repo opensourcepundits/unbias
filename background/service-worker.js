@@ -306,6 +306,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 		};
 
 		try {
+            // Signal to the UI that an analysis has started
+            chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_START" });
+
 			const promptText = imageAnalysisPrompts[info.menuItemId];
 			if (!promptText) {
 				console.error("No prompt found for menu item:", info.menuItemId);
@@ -351,6 +354,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 			session.destroy();
 		} catch (error) {
 			console.error("Error analyzing image:", error);
+            // Still send a result message on error so the UI can stop loading
+            chrome.runtime.sendMessage({ type: "IMAGE_ANALYSIS_RESULT", payload: { error: error.message } });
 		}
 		return; // Stop execution here for image analysis
 	}
